@@ -1,31 +1,41 @@
 --!strict
--- Пул растений. ЧЕРНОВЫЕ числа для плейтеста, не финальный баланс.
--- growTime — секунды до созревания, fruits — плодов за урожай, fruitPrice — цена одного плода (монеты),
--- upgradeBase — цена первой прокачки (дальше растёт по Config.Upgrade).
+-- 5 базовых растений (по одному на редкость). Каждое при прокачке меняет название:
+-- уровни 1-2 -> stages[1], 3-4 -> stages[2], 5-6 -> stages[3], 7-8 -> stages[4], 9-10 -> stages[5].
+-- ЧЕРНОВЫЕ числа для плейтеста. growTime — секунды, fruits — плодов за урожай,
+-- fruitPrice — цена плода на уровне 1 (плоды продаются автоматически при сборе),
+-- upgradeBase — цена первой прокачки (дальше по Config.Upgrade).
 
 export type Plant = {
 	id: string,
-	name: string,
 	rarity: string,
 	growTime: number,
 	fruits: number,
 	fruitPrice: number,
 	upgradeBase: number,
+	stages: { string },
 }
 
 local Plants: { Plant } = {
-	{ id = "apple", name = "Яблоня", rarity = "common", growTime = 60, fruits = 3, fruitPrice = 5, upgradeBase = 40 },
-	{ id = "cherry", name = "Вишня", rarity = "common", growTime = 90, fruits = 3, fruitPrice = 8, upgradeBase = 60 },
-	{ id = "pear", name = "Груша", rarity = "uncommon", growTime = 120, fruits = 4, fruitPrice = 12, upgradeBase = 120 },
-	{ id = "plum", name = "Слива", rarity = "uncommon", growTime = 180, fruits = 4, fruitPrice = 18, upgradeBase = 180 },
-	{ id = "peach", name = "Персик", rarity = "rare", growTime = 300, fruits = 5, fruitPrice = 30, upgradeBase = 400 },
-	{ id = "orange", name = "Апельсин", rarity = "rare", growTime = 420, fruits = 5, fruitPrice = 45, upgradeBase = 600 },
-	{ id = "mango", name = "Манго", rarity = "epic", growTime = 600, fruits = 6, fruitPrice = 80, upgradeBase = 1500 },
-	{ id = "melon", name = "Арбузное дерево", rarity = "epic", growTime = 900, fruits = 6, fruitPrice = 130, upgradeBase = 2500 },
-	{ id = "gold_apple", name = "Золотая яблоня", rarity = "legendary", growTime = 1800, fruits = 6, fruitPrice = 400, upgradeBase = 8000 },
-	{ id = "crystal_plum", name = "Кристальная слива", rarity = "legendary", growTime = 2700, fruits = 8, fruitPrice = 500, upgradeBase = 12000 },
-	{ id = "rainbow", name = "Радужное дерево", rarity = "mythic", growTime = 3600, fruits = 10, fruitPrice = 1500, upgradeBase = 50000 },
-	{ id = "moon", name = "Лунное дерево", rarity = "mythic", growTime = 5400, fruits = 10, fruitPrice = 2500, upgradeBase = 90000 },
+	{
+		id = "apple", rarity = "common", growTime = 60, fruits = 3, fruitPrice = 5, upgradeBase = 40,
+		stages = { "Яблоня", "Яблоня Идуны", "Золотая яблоня Гесперид", "Древо Авалона", "Иггдрасиль" },
+	},
+	{
+		id = "cherry", rarity = "uncommon", growTime = 120, fruits = 4, fruitPrice = 10, upgradeBase = 100,
+		stages = { "Вишня", "Сакура Кодама", "Вишня Аматэрасу", "Сакура Кицунэ", "Древо Фусан" },
+	},
+	{
+		id = "pear", rarity = "rare", growTime = 300, fruits = 5, fruitPrice = 25, upgradeBase = 300,
+		stages = { "Груша", "Эльфийская груша", "Груша Алкиноя", "Груша Титанов", "Древо Мирового Света" },
+	},
+	{
+		id = "peach", rarity = "epic", growTime = 900, fruits = 6, fruitPrice = 70, upgradeBase = 1000,
+		stages = { "Персик", "Персик Сиванму", "Персик Бессмертия", "Персик Нефритового императора", "Древо Пэнлай" },
+	},
+	{
+		id = "orange", rarity = "legendary", growTime = 3600, fruits = 8, fruitPrice = 200, upgradeBase = 5000,
+		stages = { "Апельсин", "Апельсин Саламандры", "Огненный апельсин Феникса", "Солнечное древо Ра", "Древо Гелиоса" },
+	},
 }
 
 return Plants
