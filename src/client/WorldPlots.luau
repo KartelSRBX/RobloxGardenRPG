@@ -1,7 +1,6 @@
 --!strict
--- Сад в мире на клиенте: таблички над грядками (видны всем) и кнопки-подсказки
--- у своих грядок (посадить, собрать, удобрить, прокачать, купить грядку).
--- Данные берутся из атрибутов модели грядки, которые ставит сервер.
+-- Острова на клиенте: таблички над грядками (видны всем) и кнопки у своих грядок
+-- (посадить, собрать, удобрить, прокачать). Данные — из атрибутов модели грядки.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -30,7 +29,7 @@ function WorldPlots.start(ctx: any)
 		local pp = Instance.new("ProximityPrompt")
 		pp.KeyboardKeyCode = key
 		pp.HoldDuration = 0
-		pp.MaxActivationDistance = 12
+		pp.MaxActivationDistance = 11
 		pp.RequiresLineOfSight = false
 		pp.UIOffset = Vector2.new(0, offsetY)
 		pp.Parent = parent
@@ -46,19 +45,19 @@ function WorldPlots.start(ctx: any)
 			return
 		end
 		local gui = Instance.new("BillboardGui")
-		gui.Size = UDim2.fromOffset(220, 64)
+		gui.Size = UDim2.fromOffset(200, 46)
 		gui.StudsOffset = Vector3.new(0, 9, 0)
-		gui.MaxDistance = 70
+		gui.MaxDistance = 60
 		gui.Adornee = soil
 		gui.Parent = soil
-		local label = UI.label(gui, "", { Size = UDim2.new(1, 0, 0.55, 0) })
-		UI.textStroke(label, 2)
-		local sub = UI.label(
-			gui,
-			"",
-			{ Size = UDim2.new(1, 0, 0.45, 0), Position = UDim2.fromScale(0, 0.55) }
-		)
-		UI.textStroke(sub, 2)
+		local label =
+			UI.label(gui, "", { Size = UDim2.new(1, 0, 0.55, 0), TextStrokeTransparency = 0.6 })
+		local sub = UI.label(gui, "", {
+			Size = UDim2.new(1, 0, 0.45, 0),
+			Position = UDim2.fromScale(0, 0.55),
+			Font = UI.fontRegular,
+			TextStrokeTransparency = 0.6,
+		})
 		local e: Entry = { model = model, label = label, sub = sub, gui = gui }
 
 		if model:GetAttribute("Owner") == player.UserId then
@@ -66,13 +65,8 @@ function WorldPlots.start(ctx: any)
 			local main = prompt(soil, Enum.KeyCode.E, 0)
 			local upgrade = prompt(soil, Enum.KeyCode.R, 80)
 			main.Triggered:Connect(function()
-				if model:GetAttribute("ForSale") then
-					local res = Net.request("BuyPlot")
-					ctx.toast(if res.ok then "New plot unlocked!" else Net.errorText(res.error))
-					return
-				end
-				local plantId = model:GetAttribute("PlantId")
-				if not plantId then
+				local treeId = model:GetAttribute("PlantId")
+				if not treeId then
 					ctx.openPicker(slot)
 					return
 				end
@@ -82,16 +76,12 @@ function WorldPlots.start(ctx: any)
 				if not res.ok then
 					ctx.toast(Net.errorText(res.error))
 				elseif not ready then
-					ctx.toast("Growth boosted!")
+					ctx.toast("Growth boosted")
 				end
 			end)
 			upgrade.Triggered:Connect(function()
 				local res = Net.request("Upgrade", slot)
-				if res.ok then
-					ctx.toast("Tree upgraded!")
-				else
-					ctx.toast(Net.errorText(res.error))
-				end
+				ctx.toast(if res.ok then "Tree upgraded" else Net.errorText(res.error))
 			end)
 			e.main = main
 			e.upgrade = upgrade
@@ -106,32 +96,12 @@ function WorldPlots.start(ctx: any)
 		local m = e.model
 		local mine = m:GetAttribute("Owner") == player.UserId
 		local profile = State.profile
-		if m:GetAttribute("ForSale") then
-			local price = m:GetAttribute("Price") or 0
-			e.gui.Enabled = mine
-			e.label.Text = "➕ New plot"
-			e.label.TextColor3 = UI.colors.gold
-			e.sub.Text = `💰 {UI.formatNumber(price)}`
-			e.sub.TextColor3 = UI.colors.text
-			e.gui.StudsOffset = Vector3.new(0, 4, 0)
-			if e.main then
-				e.main.Enabled = true
-				e.main.ActionText = "Buy plot"
-				e.main.ObjectText = `💰 {UI.formatNumber(price)}`
-			end
-			if e.upgrade then
-				e.upgrade.Enabled = false
-			end
-			return
-		end
-		e.gui.Enabled = true
-		local plantId = m:GetAttribute("PlantId") :: string?
-		local plant = plantId and Garden.plant(plantId)
-		if not plant then
-			e.label.Text = if mine then "🌱 Empty" else ""
-			e.label.TextColor3 = UI.colors.text
+		local tree = Garden.tree(m:GetAttribute("PlantId") :: string?)
+		if not tree then
+			e.label.Text = if mine then "Empty plot" else ""
+			e.label.TextColor3 = UI.colors.muted
 			e.sub.Text = ""
-			e.gui.StudsOffset = Vector3.new(0, 4, 0)
+			e.gui.StudsOffset = Vector3.new(0, 3, 0)
 			if e.main then
 				e.main.Enabled = true
 				e.main.ActionText = "Plant"
@@ -143,57 +113,57 @@ function WorldPlots.start(ctx: any)
 			return
 		end
 		local level = (m:GetAttribute("Level") or 1) :: number
-		local stage = math.clamp(math.ceil(level / 2), 1, 5)
 		local readyAt = (m:GetAttribute("ReadyAt") or 0) :: number
 		local mutation = Garden.mutation(m:GetAttribute("Mutation") :: string?)
 		local ready = now >= readyAt
-		e.gui.StudsOffset = Vector3.new(0, 9 + stage * 2, 0)
-		e.label.Text = `{plant.icon} {Garden.stageName(plant, level)}`
-		e.label.TextColor3 = Garden.rarity(plant.rarity).color
+		e.gui.StudsOffset = Vector3.new(0, 8 + Garden.stage(level) * 1.2, 0)
+		e.label.Text = `{tree.name} · Lv {level}`
+		e.label.TextColor3 = Garden.rarity(tree.rarity).color
 		if ready then
-			e.sub.Text = if mutation then `✨ {mutation.name}! Ready!` else "✅ Ready!"
+			e.sub.Text = if mutation then `{mutation.name} · Ready` else "Ready"
 			e.sub.TextColor3 = if mutation then mutation.color else UI.colors.gold
 		else
-			e.sub.Text = `⏳ {UI.formatTime(readyAt - now)}`
+			e.sub.Text = UI.formatTime(readyAt - now)
 			e.sub.TextColor3 = UI.colors.text
 		end
 		if e.main then
 			local fert = profile and profile.items.fertilizer or 0
 			e.main.Enabled = ready or fert > 0
-			e.main.ActionText = if ready then "Harvest" else `Fertilize (🧪{fert})`
-			e.main.ObjectText = Garden.stageName(plant, level)
+			e.main.ActionText = if ready then "Harvest" else `Fertilize ({fert})`
+			e.main.ObjectText = tree.name
 		end
 		if e.upgrade then
-			local cost = Garden.upgradeCost(plant, level)
+			local cost = Garden.upgradeCost(tree, level)
 			e.upgrade.Enabled = cost ~= nil
-			e.upgrade.ActionText = if cost then `Upgrade 💰{UI.formatNumber(cost)}` else ""
+			e.upgrade.ActionText = if cost then `Upgrade · {UI.formatNumber(cost)}` else ""
 			e.upgrade.ObjectText = `Level {level}`
 		end
 	end
 
-	local gardens = workspace:WaitForChild("Gardens")
-	for _, d in gardens:GetDescendants() do
+	local islands = workspace:WaitForChild("Islands")
+	for _, d in islands:GetDescendants() do
 		if d:IsA("Model") then
 			task.spawn(track, d)
 		end
 	end
-	gardens.DescendantAdded:Connect(function(d)
+	islands.DescendantAdded:Connect(function(d)
 		if d:IsA("Model") then
 			task.spawn(track, d)
 		end
 	end)
 
-	-- Машина семян и портал
+	-- Машина семян и портал на хабе
 	local map = workspace:WaitForChild("Map")
-	local machine = map:WaitForChild("SeedMachine")
-	local spinPrompt = machine:FindFirstChild("SpinPrompt", true) :: ProximityPrompt?
+	local spinPrompt =
+		map:WaitForChild("SeedMachine"):FindFirstChild("SpinPrompt", true) :: ProximityPrompt?
 	if spinPrompt then
+		spinPrompt.ActionText = "Odds & upgrades"
 		spinPrompt.Triggered:Connect(function()
-			ctx.open("Spin")
+			ctx.open("Roll")
 		end)
 	end
-	local portal = map:WaitForChild("DungeonPortal")
-	local dungeonPrompt = portal:FindFirstChild("DungeonPrompt", true) :: ProximityPrompt?
+	local dungeonPrompt =
+		map:WaitForChild("DungeonPortal"):FindFirstChild("DungeonPrompt", true) :: ProximityPrompt?
 	if dungeonPrompt then
 		dungeonPrompt.Triggered:Connect(function()
 			ctx.open("Dungeon")
@@ -211,13 +181,13 @@ function WorldPlots.start(ctx: any)
 	end)
 end
 
--- Своя грядка по номеру (для стрелки туториала).
+-- Своя грядка по номеру (для стрелки подсказки).
 function WorldPlots.find(slot: number): Model?
-	local gardens = workspace:FindFirstChild("Gardens")
-	if not gardens then
+	local islands = workspace:FindFirstChild("Islands")
+	if not islands then
 		return nil
 	end
-	for _, d in gardens:GetDescendants() do
+	for _, d in islands:GetDescendants() do
 		if
 			d:IsA("Model")
 			and d:GetAttribute("Owner") == player.UserId

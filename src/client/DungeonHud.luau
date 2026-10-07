@@ -20,7 +20,7 @@ local function lootText(loot: any): string
 	if not loot then
 		return ""
 	end
-	return `💰 {UI.formatNumber(loot.coins)}   🧪 {loot.fertilizer}   🌱 {#loot.seeds}`
+	return `Coins {UI.formatNumber(loot.coins)} · Fertilizer {loot.fertilizer} · Sprouts {#loot.seeds}`
 end
 
 local function seedIcons(seeds: { string }): string
@@ -28,10 +28,10 @@ local function seedIcons(seeds: { string }): string
 	for _, id in seeds do
 		local plant = Garden.plant(id)
 		if plant then
-			table.insert(parts, plant.icon)
+			table.insert(parts, plant.name)
 		end
 	end
-	return table.concat(parts, " ")
+	return table.concat(parts, ", ")
 end
 
 function DungeonHud.new(gui: ScreenGui, ctx: any)
@@ -88,7 +88,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 	bannerScale.Parent = banner
 
 	-- Кнопка атаки справа (над кнопкой прыжка на телефоне)
-	local attack = UI.button(root, "⚔️", UI.colors.red, {
+	local attack = UI.button(root, "HIT", UI.colors.red, {
 		AnchorPoint = Vector2.new(1, 1),
 		Position = UDim2.new(1, -24, 1, -190),
 		Size = UDim2.fromOffset(120, 120),
@@ -104,7 +104,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 	})
 	UI.textStroke(attackHint)
 
-	local leave = UI.button(root, "🚪 Leave with loot", UI.colors.blue, {
+	local leave = UI.button(root, "Leave with loot", UI.colors.blue, {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0.44, 0),
 		Size = UDim2.fromOffset(280, 64),
@@ -211,15 +211,15 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 		overlay.Visible = true
 		local kept, lost = d.kept, d.lost
 		if d.result == "victory" then
-			cardTitle.Text = "🏆 Dungeon cleared!"
+			cardTitle.Text = "Dungeon cleared!"
 			cardTitle.TextColor3 = UI.colors.gold
 			cardStroke.Color = UI.colors.gold
 		elseif d.result == "left" then
-			cardTitle.Text = "🚪 You escaped!"
+			cardTitle.Text = "You escaped!"
 			cardTitle.TextColor3 = UI.colors.green
 			cardStroke.Color = UI.colors.green
 		else
-			cardTitle.Text = "💀 You fell"
+			cardTitle.Text = "You fell"
 			cardTitle.TextColor3 = UI.colors.red
 			cardStroke.Color = UI.colors.red
 		end
@@ -231,7 +231,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 			text ..= `\nLost: {lootText(lost)}`
 		end
 		cardText.Text = text
-		primary.Text = "🌳 Back to garden"
+		primary.Text = "Back to garden"
 		primary.BackgroundColor3 = UI.colors.green
 		primaryAction = function()
 			overlay.Visible = false
@@ -243,12 +243,12 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 
 	local function showDowned(d: any)
 		overlay.Visible = true
-		cardTitle.Text = "💫 You got knocked out!"
+		cardTitle.Text = "You got knocked out!"
 		cardTitle.TextColor3 = UI.colors.red
 		cardStroke.Color = UI.colors.red
 		if d.revivesLeft > 0 then
 			cardText.Text = `Loot so far: {lootText(d.loot)}`
-			primary.Text = "❤️ Revive (free)"
+			primary.Text = "Revive (free)"
 			primary.BackgroundColor3 = UI.colors.green
 			primaryAction = function()
 				local res = Net.request("DungeonRevive")
@@ -280,8 +280,8 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 		root.Visible = true
 		ctx.setWorldHud(false)
 		ctx.close()
-		waveLabel.Text = `🌊 Wave {d.wave}/{d.waves}`
-			.. (if d.state == "fight" then `  ·  👾 {d.enemies}` else "")
+		waveLabel.Text = `Wave {d.wave}/{d.waves}`
+			.. (if d.state == "fight" then `  ·  {d.enemies}` else "")
 		lootLabel.Text = lootText(d.loot)
 		leave.Visible = d.state == "pause"
 		attack.Visible = d.state == "fight" or d.state == "start" or d.state == "pause"
@@ -297,7 +297,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 				showBanner(`Get ready! Wave 1 in {d.startIn}...`)
 			elseif d.state == "fight" and lastState ~= "fight" then
 				showBanner(
-					if d.wave == d.waves then "👑 BOSS WAVE!" else `Wave {d.wave}!`,
+					if d.wave == d.waves then "BOSS WAVE!" else `Wave {d.wave}!`,
 					UI.colors.red
 				)
 				task.delay(1.5, function()
@@ -309,12 +309,12 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 				local g = d.gained
 				local extra = ""
 				if g.fertilizer > 0 then
-					extra ..= "  🧪+1"
+					extra ..= " · Fertilizer +1"
 				end
 				if #g.seeds > 0 then
-					extra ..= "  " .. seedIcons(g.seeds)
+					extra ..= " · " .. seedIcons(g.seeds)
 				end
-				showBanner(`Wave cleared! 💰+{g.coins}{extra}`, UI.colors.gold)
+				showBanner(`Wave cleared! +{g.coins}{extra}`, UI.colors.gold)
 			end
 		end
 		lastState = d.state
@@ -329,7 +329,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 				if hum then
 					local frac = math.clamp(hum.Health / math.max(1, hum.MaxHealth), 0, 1)
 					hpBar.Size = UDim2.fromScale(frac, 1)
-					hpText.Text = `❤️ {math.ceil(hum.Health)} / {math.floor(hum.MaxHealth)}`
+					hpText.Text = `{math.ceil(hum.Health)} / {math.floor(hum.MaxHealth)}`
 				end
 			end
 		end

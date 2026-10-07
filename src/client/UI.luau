@@ -1,52 +1,61 @@
 --!strict
--- Помощники UI: тема, крупные кнопки под палец, панели с анимацией появления.
+-- Помощники UI в сдержанном стиле: тёмное стекло, тонкие обводки, плоские кнопки,
+-- шрифт Gotham. Крупные зоны нажатия остаются (mobile-first).
 local TweenService = game:GetService("TweenService")
 
 local UI = {}
 
 UI.colors = {
-	bg = Color3.fromRGB(28, 32, 46),
-	panel = Color3.fromRGB(44, 50, 70),
-	panelLight = Color3.fromRGB(62, 70, 96),
-	text = Color3.fromRGB(250, 250, 255),
-	muted = Color3.fromRGB(170, 178, 200),
-	green = Color3.fromRGB(76, 200, 96),
-	greenDark = Color3.fromRGB(46, 140, 64),
-	blue = Color3.fromRGB(66, 140, 240),
-	blueDark = Color3.fromRGB(40, 96, 180),
-	red = Color3.fromRGB(226, 76, 76),
-	redDark = Color3.fromRGB(160, 44, 44),
-	gold = Color3.fromRGB(255, 205, 60),
-	goldDark = Color3.fromRGB(200, 140, 20),
-	purple = Color3.fromRGB(150, 90, 240),
-	purpleDark = Color3.fromRGB(96, 50, 170),
-	disabled = Color3.fromRGB(96, 102, 120),
+	bg = Color3.fromRGB(16, 18, 24),
+	panel = Color3.fromRGB(28, 31, 40),
+	panelLight = Color3.fromRGB(40, 44, 56),
+	line = Color3.fromRGB(255, 255, 255),
+	text = Color3.fromRGB(236, 238, 244),
+	muted = Color3.fromRGB(150, 156, 172),
+	green = Color3.fromRGB(84, 182, 112),
+	greenDark = Color3.fromRGB(56, 128, 80),
+	blue = Color3.fromRGB(86, 136, 220),
+	blueDark = Color3.fromRGB(58, 94, 160),
+	red = Color3.fromRGB(206, 84, 84),
+	redDark = Color3.fromRGB(150, 56, 56),
+	gold = Color3.fromRGB(228, 184, 84),
+	goldDark = Color3.fromRGB(170, 130, 50),
+	purple = Color3.fromRGB(150, 112, 220),
+	purpleDark = Color3.fromRGB(100, 72, 160),
+	disabled = Color3.fromRGB(58, 62, 74),
 }
 
-UI.font = Enum.Font.FredokaOne
+UI.font = Enum.Font.GothamBold
+UI.fontRegular = Enum.Font.GothamMedium
 
 function UI.corner(parent: GuiObject, radius: number?)
 	local c = Instance.new("UICorner")
-	c.CornerRadius = UDim.new(0, radius or 14)
+	c.CornerRadius = UDim.new(0, radius or 8)
 	c.Parent = parent
 end
 
-function UI.stroke(parent: GuiObject, color: Color3, thickness: number?): UIStroke
+function UI.stroke(
+	parent: GuiObject,
+	color: Color3,
+	thickness: number?,
+	transparency: number?
+): UIStroke
 	local s = Instance.new("UIStroke")
 	s.Color = color
-	s.Thickness = thickness or 3
+	s.Thickness = thickness or 1.5
+	s.Transparency = transparency or 0
 	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 	s.Parent = parent
 	return s
 end
 
-function UI.textStroke(label: TextLabel | TextButton, thickness: number?)
-	local s = Instance.new("UIStroke")
-	s.Color = Color3.fromRGB(20, 20, 30)
-	s.Thickness = thickness or 2
-	s.ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual
-	s.Parent = label
+-- Тонкая светлая рамка «стекла».
+function UI.glass(parent: GuiObject)
+	UI.stroke(parent, UI.colors.line, 1, 0.88)
 end
+
+-- Совместимость: в новом стиле обводки текста нет.
+function UI.textStroke(_label: TextLabel | TextButton, _thickness: number?) end
 
 function UI.gradient(parent: GuiObject, top: Color3, bottom: Color3)
 	local g = Instance.new("UIGradient")
@@ -99,11 +108,14 @@ function UI.label(parent: Instance, text: string, props: { [string]: any }?): Te
 	for k, v in props or {} do
 		(l :: any)[k] = v
 	end
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = 30
+	limit.Parent = l
 	l.Parent = parent
 	return l
 end
 
--- Кнопка «с объёмом»: светлый верх, тёмный низ, обводка текста, лёгкое нажатие.
+-- Плоская кнопка с лёгким нажатием.
 function UI.button(
 	parent: Instance,
 	text: string,
@@ -122,24 +134,22 @@ function UI.button(
 		(b :: any)[k] = v
 	end
 	UI.corner(b)
-	local g = Instance.new("UIGradient")
-	g.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(190, 190, 190))
-	g.Rotation = 90
-	g.Parent = b
-	UI.textStroke(b, 1.5)
+	local limit = Instance.new("UITextSizeConstraint")
+	limit.MaxTextSize = 24
+	limit.Parent = b
 	local pad = Instance.new("UIPadding")
-	pad.PaddingTop = UDim.new(0.18, 0)
-	pad.PaddingBottom = UDim.new(0.18, 0)
-	pad.PaddingLeft = UDim.new(0, 8)
-	pad.PaddingRight = UDim.new(0, 8)
+	pad.PaddingTop = UDim.new(0.22, 0)
+	pad.PaddingBottom = UDim.new(0.22, 0)
+	pad.PaddingLeft = UDim.new(0, 10)
+	pad.PaddingRight = UDim.new(0, 10)
 	pad.Parent = b
 	local scale = Instance.new("UIScale")
 	scale.Parent = b
 	b.MouseButton1Down:Connect(function()
-		TweenService:Create(scale, TweenInfo.new(0.06), { Scale = 0.93 }):Play()
+		TweenService:Create(scale, TweenInfo.new(0.06), { Scale = 0.96 }):Play()
 	end)
 	local function release()
-		TweenService:Create(scale, TweenInfo.new(0.12, Enum.EasingStyle.Back), { Scale = 1 }):Play()
+		TweenService:Create(scale, TweenInfo.new(0.1), { Scale = 1 }):Play()
 	end
 	b.MouseButton1Up:Connect(release)
 	b.MouseLeave:Connect(release)
@@ -153,8 +163,8 @@ function UI.pulse(obj: GuiObject): () -> ()
 	scale.Parent = obj
 	local tween = TweenService:Create(
 		scale,
-		TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{ Scale = 1.1 }
+		TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{ Scale = 1.06 }
 	)
 	tween:Play()
 	return function()
@@ -170,10 +180,10 @@ export type Panel = {
 	visible: () -> boolean,
 }
 
--- Модальная панель: заголовок с иконкой, крестик, область содержимого.
+-- Модальная панель: заголовок, тонкая акцентная полоса, крестик, область содержимого.
 function UI.panel(
 	parent: Instance,
-	icon: string,
+	_icon: string,
 	title: string,
 	accent: Color3,
 	onClose: () -> ()
@@ -181,66 +191,58 @@ function UI.panel(
 	local root = UI.frame(parent, {
 		Name = title,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.56),
-		Size = UDim2.new(0.92, 0, 0.74, 0),
+		Position = UDim2.fromScale(0.5, 0.54),
+		Size = UDim2.new(0.92, 0, 0.76, 0),
 		BackgroundColor3 = UI.colors.bg,
+		BackgroundTransparency = 0.06,
 		Visible = false,
 		ZIndex = 5,
 	})
 	local limit = Instance.new("UISizeConstraint")
-	limit.MaxSize = Vector2.new(620, 640)
+	limit.MaxSize = Vector2.new(640, 660)
 	limit.Parent = root
-	UI.corner(root, 20)
-	UI.stroke(root, accent, 4)
+	UI.corner(root, 12)
+	UI.glass(root)
 	local scale = Instance.new("UIScale")
 	scale.Parent = root
 
-	local header = UI.frame(root, {
-		Size = UDim2.new(1, 0, 0, 58),
-		BackgroundColor3 = accent,
-		ZIndex = 5,
-	})
-	UI.corner(header, 20)
-	UI.gradient(header, Color3.new(1, 1, 1), Color3.fromRGB(200, 200, 200))
-	-- нижние углы шапки прямые
-	UI.frame(header, {
-		Size = UDim2.new(1, 0, 0, 20),
-		Position = UDim2.new(0, 0, 1, -20),
-		BackgroundColor3 = accent,
-		ZIndex = 5,
-	})
-	local titleLabel = UI.label(header, `{icon}  {title}`, {
-		Size = UDim2.new(1, -90, 0, 40),
-		Position = UDim2.fromOffset(16, 9),
+	UI.label(root, string.upper(title), {
+		Size = UDim2.new(1, -90, 0, 26),
+		Position = UDim2.fromOffset(18, 16),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		ZIndex = 6,
 	})
-	UI.textStroke(titleLabel, 2)
-	local close = UI.button(header, "X", UI.colors.red, {
+	UI.frame(root, {
+		Size = UDim2.fromOffset(36, 3),
+		Position = UDim2.fromOffset(18, 48),
+		BackgroundColor3 = accent,
+		ZIndex = 6,
+	})
+	local close = UI.button(root, "X", UI.colors.panelLight, {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -10, 0, 8),
-		Size = UDim2.fromOffset(44, 42),
+		Position = UDim2.new(1, -12, 0, 10),
+		Size = UDim2.fromOffset(44, 40),
 		ZIndex = 7,
 	})
 	close.Activated:Connect(onClose)
 
 	local content = UI.frame(root, {
 		Name = "Content",
-		Position = UDim2.fromOffset(12, 68),
-		Size = UDim2.new(1, -24, 1, -80),
+		Position = UDim2.fromOffset(14, 62),
+		Size = UDim2.new(1, -28, 1, -74),
 		BackgroundTransparency = 1,
 		ZIndex = 5,
 	})
 
-	local panel: Panel = {
+	return {
 		root = root,
 		content = content,
 		setVisible = function(v: boolean)
 			if v and not root.Visible then
-				scale.Scale = 0.85
+				scale.Scale = 0.96
 				root.Visible = true
 				TweenService
-					:Create(scale, TweenInfo.new(0.22, Enum.EasingStyle.Back), { Scale = 1 })
+					:Create(scale, TweenInfo.new(0.16, Enum.EasingStyle.Quad), { Scale = 1 })
 					:Play()
 			elseif not v then
 				root.Visible = false
@@ -250,7 +252,6 @@ function UI.panel(
 			return root.Visible
 		end,
 	}
-	return panel
 end
 
 function UI.scroll(parent: Instance, props: { [string]: any }?): ScrollingFrame
@@ -258,7 +259,8 @@ function UI.scroll(parent: Instance, props: { [string]: any }?): ScrollingFrame
 	s.Size = UDim2.fromScale(1, 1)
 	s.BackgroundTransparency = 1
 	s.BorderSizePixel = 0
-	s.ScrollBarThickness = 6
+	s.ScrollBarThickness = 4
+	s.ScrollBarImageColor3 = UI.colors.muted
 	s.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	s.CanvasSize = UDim2.new()
 	s.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -267,6 +269,35 @@ function UI.scroll(parent: Instance, props: { [string]: any }?): ScrollingFrame
 	end
 	s.Parent = parent
 	return s
+end
+
+-- Полоса прогресса: возвращает функцию установки доли 0..1 и цвета.
+function UI.bar(parent: Instance, props: { [string]: any }?): (number, Color3?) -> ()
+	local bg = UI.frame(parent, { BackgroundColor3 = UI.colors.panelLight })
+	for k, v in props or {} do
+		(bg :: any)[k] = v
+	end
+	UI.corner(bg, 4)
+	local fill = UI.frame(bg, { Size = UDim2.fromScale(0, 1), BackgroundColor3 = UI.colors.green })
+	UI.corner(fill, 4)
+	return function(frac: number, color: Color3?)
+		fill.Size = UDim2.fromScale(math.clamp(frac, 0, 1), 1)
+		if color then
+			fill.BackgroundColor3 = color
+		end
+	end
+end
+
+-- Круглая «монета» для счётчика.
+function UI.coinIcon(parent: Instance, size: number, props: { [string]: any }?): Frame
+	local c =
+		UI.frame(parent, { Size = UDim2.fromOffset(size, size), BackgroundColor3 = UI.colors.gold })
+	for k, v in props or {} do
+		(c :: any)[k] = v
+	end
+	UI.corner(c, size)
+	UI.stroke(c, UI.colors.goldDark, 2)
+	return c
 end
 
 function UI.formatTime(seconds: number): string
@@ -278,13 +309,30 @@ function UI.formatTime(seconds: number): string
 end
 
 function UI.formatNumber(n: number): string
+	if n >= 1e9 then
+		return string.format("%.2fB", n / 1e9)
+	elseif n >= 1e6 then
+		return string.format("%.2fM", n / 1e6)
+	elseif n >= 1e5 then
+		return string.format("%.1fK", n / 1e3)
+	end
 	local s = tostring(math.floor(n))
 	local out = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
 	return (out:gsub("^,", ""))
 end
 
+-- «1 / 2.5M»
+function UI.oneIn(n: number): string
+	return "1 in " .. UI.formatNumber(math.floor(n + 0.5))
+end
+
 function UI.percent(p: number): string
-	return (string.format("%.1f", p):gsub("%.0$", "")) .. "%"
+	if p >= 10 then
+		return string.format("%.1f%%", p)
+	elseif p >= 0.01 then
+		return (string.format("%.2f", p):gsub("0+$", ""):gsub("%.$", "")) .. "%"
+	end
+	return string.format("%.1e%%", p)
 end
 
 return UI

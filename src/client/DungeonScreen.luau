@@ -13,7 +13,7 @@ local D = Config.Dungeon
 local DungeonScreen = {}
 
 function DungeonScreen.new(parent: Instance, ctx: any)
-	local panel = UI.panel(parent, "⚔️", "Dungeon", UI.colors.purple, ctx.close)
+	local panel = UI.panel(parent, "", "Dungeon", UI.colors.purple, ctx.close)
 	local scroll = UI.scroll(panel.content)
 	UI.list(scroll, 10)
 	local pad = Instance.new("UIPadding")
@@ -33,7 +33,7 @@ function DungeonScreen.new(parent: Instance, ctx: any)
 
 	-- Сила от сада
 	local power = box(1, 96, UI.colors.green)
-	UI.label(power, "🌳 Garden power", {
+	UI.label(power, "Garden power", {
 		Size = UDim2.new(1, 0, 0, 30),
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})
@@ -63,10 +63,10 @@ function DungeonScreen.new(parent: Instance, ctx: any)
 	rulesList.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	for i, line in
 		{
-			`🌊 {#D.waves} waves of monsters, boss at the end`,
-			"⚔️ Tap Attack when monsters are close",
-			"🚪 Leave between waves and keep all loot",
-			`💀 If you fall: {D.revives} free revive, then keep {100 - D.deathLossPercent}% of loot`,
+			`{#D.waves} waves of monsters, boss at the end`,
+			"Tap Attack when monsters are close",
+			"Leave between waves and keep all loot",
+			`If you fall: {D.revives} free revive, then keep {100 - D.deathLossPercent}% of loot`,
 		}
 	do
 		UI.label(rules, line, {
@@ -77,32 +77,22 @@ function DungeonScreen.new(parent: Instance, ctx: any)
 	end
 
 	-- Шансы добычи за волну
-	local loot = box(4, 70 + #D.loot.seedOdds * 30, UI.colors.gold)
-	local lootList = UI.list(loot, 2)
+	local loot = box(4, 96, UI.colors.gold)
+	local lootList = UI.list(loot, 4)
 	lootList.HorizontalAlignment = Enum.HorizontalAlignment.Left
-	UI.label(loot, "🎁 Loot per wave", {
-		Size = UDim2.new(1, 0, 0, 28),
-		TextXAlignment = Enum.TextXAlignment.Left,
-		LayoutOrder = 0,
-	})
-	UI.label(
-		loot,
-		`💰 Coins: always   🧪 Fertilizer: {D.loot.fertilizerChance}%   🌱 Seed: {D.loot.seedChance}%`,
+	for i, line in
 		{
-			Size = UDim2.new(1, 0, 0, 24),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = UI.colors.muted,
-			LayoutOrder = 1,
+			"Loot per wave",
+			`Coins: always · Fertilizer: {D.loot.fertilizerChance}% · Sprout: {D.loot.seedChance}%`,
+			`Dungeon sprouts roll with x{D.loot.seedLuckMult} your luck`,
 		}
-	)
-	for i, o in D.loot.seedOdds do
-		local plant = Garden.plantForRarity(o.rarity)
-		local r = Garden.rarity(o.rarity)
-		UI.label(loot, `   {plant and plant.icon or ""} {r.name} seed: {UI.percent(o.chance)}`, {
-			Size = UDim2.new(1, 0, 0, 26),
+	do
+		UI.label(loot, line, {
+			Size = UDim2.new(1, 0, 0, if i == 1 then 22 else 18),
 			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = r.color,
-			LayoutOrder = 1 + i,
+			TextColor3 = if i == 1 then UI.colors.text else UI.colors.muted,
+			Font = if i == 1 then UI.font else UI.fontRegular,
+			LayoutOrder = i,
 		})
 	end
 
@@ -114,7 +104,7 @@ function DungeonScreen.new(parent: Instance, ctx: any)
 			return
 		end
 		local hp, dmg = Garden.buffs(profile.plots)
-		powerText.Text = `❤️ {D.player.hp + hp} HP   💥 +{math.floor(dmg * 100)}% damage`
+		powerText.Text = `{D.player.hp + hp} HP · +{math.floor(dmg * 100)}% damage`
 	end
 
 	function screen.setVisible(v: boolean)

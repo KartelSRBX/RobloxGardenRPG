@@ -13,13 +13,18 @@ local ERRORS: { [string]: string } = {
 	max_level = "Max level!",
 	no_seed = "No seed",
 	occupied = "Plot is busy",
-	no_fertilizer = "No fertilizer. Find it in the Dungeon!",
+	no_fertilizer = "No fertilizer. Find it in the Dungeon",
 	already_ready = "Already ripe!",
 	max_plots = "All plots bought!",
 	in_run = "Finish your dungeon run first",
 	dungeon_full = "Dungeon is busy, try again soon",
 	in_fight = "Defeat this wave first!",
 	no_character = "Wait for your character",
+	cooldown = "Rolling...",
+	auto_locked = "Auto roll unlocks after 250 rolls",
+	need_time = "Play a bit longer to expand",
+	need_seeds = "Need more sprouts to expand",
+	max_island = "Island is at max size",
 }
 
 function Net.request(name: string, ...: any): { [string]: any }

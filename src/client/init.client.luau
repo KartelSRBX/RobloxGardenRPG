@@ -1,6 +1,6 @@
 --!strict
--- Точка входа клиента: HUD (монеты, три главных экрана, меню), панели, сад в мире,
--- подсказки, эффекты и интерфейс подземелья.
+-- Точка входа клиента: HUD (монеты, ростки, три главных экрана, меню, крутка),
+-- панели, острова в мире, подсказки, эффекты и интерфейс подземелья.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -10,10 +10,12 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DungeonHud = require(script.DungeonHud)
 local DungeonScreen = require(script.DungeonScreen)
 local Effects = require(script.Effects)
-local GardenScreen = require(script.GardenScreen)
 local Guide = require(script.Guide)
+local IslandScreen = require(script.IslandScreen)
 local MenuScreen = require(script.MenuScreen)
-local SpinScreen = require(script.SpinScreen)
+local Net = require(script.Net)
+local RollHud = require(script.RollHud)
+local RollScreen = require(script.RollScreen)
 local State = require(script.State)
 local UI = require(script.UI)
 local WorldPlots = require(script.WorldPlots)
@@ -31,50 +33,58 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local worldHud =
 	UI.frame(gui, { Name = "WorldHud", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 })
 
--- Монеты
-local coinsPill = UI.frame(worldHud, {
+-- Счётчики сверху: монеты и ростки
+local stats = UI.frame(worldHud, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 52),
-	Size = UDim2.fromOffset(230, 54),
+	Position = UDim2.new(0.5, 0, 0, 54),
+	Size = UDim2.fromOffset(300, 44),
 	BackgroundColor3 = UI.colors.bg,
-	BackgroundTransparency = 0.05,
+	BackgroundTransparency = 0.15,
 })
-UI.corner(coinsPill, 27)
-UI.stroke(coinsPill, UI.colors.gold, 3)
-local coinsScale = Instance.new("UIScale")
-coinsScale.Parent = coinsPill
-local coinIcon = UI.label(
-	coinsPill,
-	"💰",
-	{ Size = UDim2.fromOffset(44, 44), Position = UDim2.fromOffset(6, 5) }
-)
-coinIcon.TextScaled = true
-local coinsLabel = UI.label(coinsPill, "...", {
-	Size = UDim2.new(1, -64, 1, -14),
-	Position = UDim2.fromOffset(54, 7),
-	TextColor3 = UI.colors.gold,
+UI.corner(stats, 10)
+UI.glass(stats)
+local statsScale = Instance.new("UIScale")
+statsScale.Parent = stats
+UI.coinIcon(stats, 18, { Position = UDim2.fromOffset(14, 13) })
+local coinsLabel = UI.label(stats, "0", {
+	Size = UDim2.new(0.5, -44, 0, 22),
+	Position = UDim2.fromOffset(40, 11),
 	TextXAlignment = Enum.TextXAlignment.Left,
+	TextColor3 = UI.colors.gold,
 })
-UI.textStroke(coinsLabel, 2)
+local sproutDot = UI.frame(stats, {
+	Size = UDim2.fromOffset(14, 14),
+	Position = UDim2.new(0.5, 10, 0, 15),
+	BackgroundColor3 = UI.colors.green,
+	Rotation = 45,
+})
+UI.corner(sproutDot, 3)
+local seedsLabel = UI.label(stats, "0", {
+	Size = UDim2.new(0.5, -40, 0, 22),
+	Position = UDim2.new(0.5, 34, 0, 11),
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextColor3 = UI.colors.green,
+})
 
 -- Тост
 local toastLabel = UI.label(gui, "", {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 176),
-	Size = UDim2.new(0.8, 0, 0, 48),
+	Position = UDim2.new(0.5, 0, 0, 158),
+	Size = UDim2.new(0.8, 0, 0, 40),
 	BackgroundTransparency = 0.1,
 	BackgroundColor3 = UI.colors.bg,
+	Font = UI.fontRegular,
 	Visible = false,
 	ZIndex = 40,
 })
 local toastLimit = Instance.new("UISizeConstraint")
-toastLimit.MaxSize = Vector2.new(520, 48)
+toastLimit.MaxSize = Vector2.new(440, 40)
 toastLimit.Parent = toastLabel
-UI.corner(toastLabel, 24)
-UI.stroke(toastLabel, UI.colors.blue, 2)
+UI.corner(toastLabel, 8)
+UI.glass(toastLabel)
 local toastPad = Instance.new("UIPadding")
-toastPad.PaddingTop = UDim.new(0, 8)
-toastPad.PaddingBottom = UDim.new(0, 8)
+toastPad.PaddingTop = UDim.new(0, 10)
+toastPad.PaddingBottom = UDim.new(0, 10)
 toastPad.Parent = toastLabel
 local toastId = 0
 local function toast(text: string)
@@ -104,7 +114,7 @@ local function close()
 	end
 	current = nil
 	for _, b in navButtons do
-		b.BackgroundColor3 = b:GetAttribute("Color") :: Color3
+		b.BackgroundColor3 = UI.colors.bg
 	end
 end
 
@@ -123,11 +133,12 @@ local function open(name: string)
 		current = name
 		local b = navButtons[name]
 		if b then
-			b.BackgroundColor3 = UI.colors.text
+			b.BackgroundColor3 = UI.colors.panelLight
 		end
 	end
 end
 
+local island: any = nil
 local ctx = {
 	toast = toast,
 	open = open,
@@ -138,66 +149,78 @@ local ctx = {
 	setWorldHud = function(v: boolean)
 		worldHud.Visible = v
 	end,
-	openPicker = function(_slot: number) end,
+	openPicker = function(slot: number)
+		island.openPicker(slot)
+	end,
 }
 
-local garden = GardenScreen.new(panels, ctx)
-screens.Garden = garden
-screens.Spin = SpinScreen.new(panels, ctx)
+island = IslandScreen.new(panels, ctx)
+screens.Island = island
+screens.Roll = RollScreen.new(panels, ctx)
 screens.Dungeon = DungeonScreen.new(panels, ctx)
 screens.Menu = MenuScreen.new(panels, ctx)
-ctx.openPicker = function(slot: number)
-	close()
-	garden.setVisible(true)
-	current = "Garden"
-	garden.openPicker(slot)
-end
 
--- Три главных экрана: крупные кнопки слева по центру (не мешают джойстику и прыжку)
+-- Три главных экрана слева по центру: не мешают джойстику и прыжку
 local nav = UI.frame(worldHud, {
 	AnchorPoint = Vector2.new(0, 0.5),
-	Position = UDim2.new(0, 14, 0.5, 0),
-	Size = UDim2.fromOffset(92, 3 * 104),
+	Position = UDim2.new(0, 12, 0.45, 0),
+	Size = UDim2.fromOffset(96, 3 * 66),
 	BackgroundTransparency = 1,
 })
-UI.list(nav, 10)
+UI.list(nav, 8)
 for i, item in
 	{
-		{ "Garden", "🌳", UI.colors.green },
-		{ "Spin", "🎲", UI.colors.gold },
-		{ "Dungeon", "⚔️", UI.colors.purple },
+		{ "Island", UI.colors.green },
+		{ "Roll", UI.colors.gold },
+		{ "Dungeon", UI.colors.purple },
 	}
 do
-	local name, icon, color = item[1], item[2], item[3]
-	local b = UI.button(nav, "", color, { Size = UDim2.fromOffset(88, 88), LayoutOrder = i })
-	b:SetAttribute("Color", color)
-	UI.stroke(b, Color3.new(1, 1, 1), 3)
-	local iconLabel = UI.label(b, icon, { Size = UDim2.new(1, 0, 0.7, 0) })
-	iconLabel.TextScaled = true
-	local text = UI.label(b, name, {
-		Size = UDim2.new(1, 8, 0.38, 0),
-		Position = UDim2.new(0, -4, 0.78, 0),
+	local name, color = item[1], item[2]
+	local b = UI.button(nav, string.upper(name), UI.colors.bg, {
+		Size = UDim2.fromOffset(96, 58),
+		LayoutOrder = i,
+		BackgroundTransparency = 0.15,
 	})
-	UI.textStroke(text, 2)
+	UI.glass(b)
+	UI.frame(b, {
+		Size = UDim2.new(0, 3, 0.5, 0),
+		Position = UDim2.new(0, -6, 0.25, 0),
+		BackgroundColor3 = color,
+	})
 	b.Activated:Connect(function()
 		open(name)
 	end)
 	navButtons[name] = b
 end
 
--- Меню справа сверху
-local menuButton = UI.button(worldHud, "⚙️", UI.colors.blue, {
+-- Меню и быстрые кнопки справа сверху
+local right = UI.frame(worldHud, {
 	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -14, 0, 52),
-	Size = UDim2.fromOffset(64, 64),
-	TextSize = 36,
-	TextScaled = false,
+	Position = UDim2.new(1, -12, 0, 54),
+	Size = UDim2.fromOffset(84, 3 * 48),
+	BackgroundTransparency = 1,
 })
-UI.stroke(menuButton, Color3.new(1, 1, 1), 3)
-menuButton.Activated:Connect(function()
-	open("Menu")
-end)
+UI.list(right, 6)
+for i, item in { { "MENU", "Menu" }, { "HOME", "GoHome" }, { "HUB", "GoHub" } } do
+	local b = UI.button(right, item[1], UI.colors.bg, {
+		Size = UDim2.fromOffset(84, 42),
+		LayoutOrder = i,
+		BackgroundTransparency = 0.15,
+	})
+	UI.glass(b)
+	b.Activated:Connect(function()
+		if item[2] == "Menu" then
+			open("Menu")
+			return
+		end
+		local res = Net.request(item[2])
+		if not res.ok then
+			toast(Net.errorText(res.error))
+		end
+	end)
+end
 
+local rollHud = RollHud.new(worldHud, ctx)
 DungeonHud.new(gui, ctx)
 Effects.init(gui)
 
@@ -209,10 +232,14 @@ local function onState(profile: any, meta: any?)
 	end
 	State.set(profile, meta)
 	coinsLabel.Text = UI.formatNumber(profile.coins)
+	local seeds = 0
+	for _, n in profile.seeds do
+		seeds += n
+	end
+	seedsLabel.Text = UI.formatNumber(seeds)
 	if lastCoins and profile.coins > lastCoins then
-		coinsScale.Scale = 1.2
-		TweenService:Create(coinsScale, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 })
-			:Play()
+		statsScale.Scale = 1.06
+		TweenService:Create(statsScale, TweenInfo.new(0.2), { Scale = 1 }):Play()
 	end
 	lastCoins = profile.coins
 	for _, s in screens do
@@ -233,17 +260,17 @@ task.spawn(function()
 	end
 end)
 
-WorldPlots.start(ctx)
-Guide.start(gui)
+task.spawn(WorldPlots.start, ctx)
+Guide.start(gui, rollHud.button)
 
--- Таймеры в панели сада по серверному времени
+-- Таймеры в панели острова по серверному времени
 local acc = 0
 RunService.Heartbeat:Connect(function(dt)
 	acc += dt
 	if acc >= 0.25 then
 		acc = 0
-		if garden.visible() then
-			garden.refresh(workspace:GetServerTimeNow())
+		if island.visible() then
+			island.refresh(workspace:GetServerTimeNow())
 		end
 	end
 end)

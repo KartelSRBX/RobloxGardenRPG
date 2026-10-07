@@ -13,7 +13,7 @@ local player = Players.LocalPlayer
 local MenuScreen = {}
 
 function MenuScreen.new(parent: Instance, ctx: any)
-	local panel = UI.panel(parent, "⚙️", "Menu", UI.colors.blue, ctx.close)
+	local panel = UI.panel(parent, "", "Menu", UI.colors.blue, ctx.close)
 	local scroll = UI.scroll(panel.content)
 	UI.list(scroll, 10)
 	local pad = Instance.new("UIPadding")
@@ -40,16 +40,16 @@ function MenuScreen.new(parent: Instance, ctx: any)
 	end
 
 	-- Как играть
-	heading("📖 How to play")
+	heading("How to play")
 	local how = box(4 * 34 + 20)
 	local howList = UI.list(how, 6)
 	howList.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	for i, line in
 		{
-			"🎲 Spin the Seed Machine with coins",
-			"🌱 Plant seeds in your garden",
-			"🍎 Harvest ripe trees for coins, upgrade them",
-			"⚔️ Clear the Dungeon for seeds and fertilizer",
+			"Roll for free to get tree sprouts",
+			"Plant sprouts on your island",
+			"Harvest for coins, upgrade trees and luck",
+			"Expand your island, clear the Dungeon",
 		}
 	do
 		UI.label(how, line, {
@@ -60,11 +60,11 @@ function MenuScreen.new(parent: Instance, ctx: any)
 	end
 
 	-- Магазин: цена видна сразу, рандома за Robux нет
-	heading("🛒 Shop")
+	heading("Shop")
 	local shopRows: { () -> () } = {}
 	for _, pass in Config.GamePasses do
 		local row = box(84)
-		UI.label(row, `{pass.icon} {pass.name}`, {
+		UI.label(row, pass.name, {
 			Size = UDim2.new(0.62, 0, 0, 30),
 			TextXAlignment = Enum.TextXAlignment.Left,
 		})
@@ -87,7 +87,7 @@ function MenuScreen.new(parent: Instance, ctx: any)
 		end)
 		local function refreshRow()
 			if State.passes[pass.key] then
-				buy.Text = "Owned ✓"
+				buy.Text = "Owned "
 				buy.BackgroundColor3 = UI.colors.greenDark
 			elseif pass.id == 0 then
 				buy.Text = "Soon"
@@ -115,16 +115,16 @@ function MenuScreen.new(parent: Instance, ctx: any)
 	end
 
 	-- Статистика
-	heading("📊 Stats")
+	heading("Stats")
 	local stats = box(3 * 32 + 20)
 	local statsList = UI.list(stats, 4)
 	statsList.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	local statLabels: { [string]: TextLabel } = {}
 	for i, s in
 		{
-			{ "harvests", "🍎 Harvests" },
-			{ "runs", "⚔️ Dungeon runs" },
-			{ "bestWave", "🌊 Best wave" },
+			{ "harvests", "Harvests" },
+			{ "runs", "Dungeon runs" },
+			{ "bestWave", "Best wave" },
 		}
 	do
 		statLabels[s[1]] = UI.label(stats, s[2], {
@@ -136,9 +136,9 @@ function MenuScreen.new(parent: Instance, ctx: any)
 	end
 
 	-- Настройки
-	heading("⚙️ Settings")
+	heading("Settings")
 	local settings = box(76)
-	UI.label(settings, "🧭 Hint arrow", {
+	UI.label(settings, "Hint arrow", {
 		Size = UDim2.new(0.6, 0, 1, 0),
 		TextXAlignment = Enum.TextXAlignment.Left,
 	})

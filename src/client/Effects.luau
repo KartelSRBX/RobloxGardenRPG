@@ -112,12 +112,7 @@ function Effects.handle(payload: any)
 		return
 	end
 	if payload.kind == "coins" and payload.pos then
-		Effects.floatText(
-			payload.pos,
-			`+{UI.formatNumber(payload.amount)} 💰`,
-			UI.colors.gold,
-			60
-		)
+		Effects.floatText(payload.pos, `+{UI.formatNumber(payload.amount)}`, UI.colors.gold, 60)
 		Effects.poof(payload.pos, UI.colors.gold)
 	elseif payload.kind == "hit" and payload.pos then
 		Effects.floatText(
