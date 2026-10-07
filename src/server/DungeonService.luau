@@ -10,6 +10,8 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local DungeonConfig = require(ReplicatedStorage.Shared.Config.Dungeon)
 local Garden = require(ReplicatedStorage.Shared.Garden)
 local DataService = require(script.Parent.DataService)
+local Luck = require(ReplicatedStorage.Shared.Luck)
+local RollService = require(script.Parent.RollService)
 
 type Profile = DataService.Profile
 
@@ -229,28 +231,16 @@ local function spawnWave(run: Run)
 	push(run)
 end
 
-local function rollSeed(): string
-	local total = 0
-	for _, o in D.loot.seedOdds do
-		total += o.chance
-	end
-	local pick = rng:NextNumber() * total
-	local acc = 0
-	for _, o in D.loot.seedOdds do
-		acc += o.chance
-		if pick <= acc then
-			local plant = Garden.plantForRarity(o.rarity)
-			if plant then
-				return plant.id
-			end
-		end
-	end
-	return Config.Plants[1].id
+-- Росток из подземелья: крутка с удачей игрока, умноженной на seedLuckMult.
+local function rollSeed(player: Player): string
+	local profile = DataService.get(player)
+	local luck = if profile then Luck.breakdown(profile).total else 1
+	return Luck.roll(luck * D.loot.seedLuckMult, rng)
 end
 
-local function rarityOrder(plantId: string): number
-	local plant = Garden.plant(plantId)
-	return if plant then Garden.rarity(plant.rarity).order else 0
+local function rarityOrder(treeId: string): number
+	local tree = Garden.tree(treeId)
+	return if tree then tree.n else 0
 end
 
 -- Начисляет сохранённую часть добычи в профиль. Возвращает сохранённое и потерянное.
@@ -281,7 +271,8 @@ local function bank(player: Player, loot: Loot, keepRatio: number): (Loot, Loot)
 			profile.items.fertilizer = (profile.items.fertilizer or 0) + kept.fertilizer
 		end
 		for _, id in kept.seeds do
-			profile.seeds[id] = (profile.seeds[id] or 0) + 1
+			profile.found[id] = true
+			RollService.giveSeed(profile, id)
 		end
 	end
 	return kept, lost
@@ -331,7 +322,7 @@ local function waveCleared(run: Run)
 		gained.fertilizer = 1
 	end
 	if rng:NextNumber() * 100 < D.loot.seedChance then
-		table.insert(gained.seeds, rollSeed())
+		table.insert(gained.seeds, rollSeed(run.player))
 	end
 	run.loot.coins += gained.coins
 	run.loot.fertilizer += gained.fertilizer

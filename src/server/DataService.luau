@@ -13,11 +13,18 @@ local Tutorial = require(ReplicatedStorage.Shared.Tutorial)
 export type Profile = {
 	version: number,
 	coins: number,
-	seeds: { [string]: number },
+	seeds: { [string]: number }, -- ростки в запасе
 	items: { [string]: number }, -- fertilizer
 	plots: { Garden.Plot },
 	tutorial: number, -- шаг туториала, Tutorial.DONE = пройден
-	stats: { [string]: number }, -- harvests, runs, bestWave
+	stats: { [string]: number }, -- harvests, runs, bestWave, composted
+	rolls: number, -- всего круток
+	luckLevel: number,
+	speedLevel: number,
+	found: { [string]: boolean }, -- открытые виды (коллекция)
+	playSeconds: number, -- время в игре
+	islandTier: number,
+	autoRoll: boolean,
 }
 
 type Lock = { jobId: string, t: number }
@@ -42,10 +49,14 @@ if not ok then
 	offline = true
 end
 
+local function emptyPlot(): Garden.Plot
+	return { level = 0, plantedAt = 0, mutationRolled = false }
+end
+
 local function newProfile(): Profile
 	local plots: { Garden.Plot } = {}
-	for _ = 1, Config.StartingPlots do
-		table.insert(plots, { level = 0, plantedAt = 0, mutationRolled = false })
+	for _ = 1, Garden.islandPlots(1) do
+		table.insert(plots, emptyPlot())
 	end
 	return {
 		version = VERSION,
@@ -55,10 +66,21 @@ local function newProfile(): Profile
 		plots = plots,
 		tutorial = 1,
 		stats = {},
+		rolls = 0,
+		luckLevel = 0,
+		speedLevel = 0,
+		found = {},
+		playSeconds = 0,
+		islandTier = 1,
+		autoRoll = false,
 	}
 end
 
--- Дополняет старый профиль недостающими полями.
+local function field<T>(value: any, kind: string, default: T): T
+	return if type(value) == kind then value else default
+end
+
+-- Дополняет старый профиль недостающими полями и чинит устаревшие данные.
 local function reconcile(data: any): Profile
 	local fresh = newProfile()
 	if type(data) ~= "table" then
@@ -66,16 +88,47 @@ local function reconcile(data: any): Profile
 	end
 	local p: Profile = {
 		version = VERSION,
-		coins = if type(data.coins) == "number" then data.coins else fresh.coins,
-		seeds = if type(data.seeds) == "table" then data.seeds else fresh.seeds,
-		items = if type(data.items) == "table" then data.items else fresh.items,
-		plots = if type(data.plots) == "table" then data.plots else fresh.plots,
+		coins = field(data.coins, "number", fresh.coins),
+		seeds = field(data.seeds, "table", fresh.seeds),
+		items = field(data.items, "table", fresh.items),
+		plots = field(data.plots, "table", fresh.plots),
 		-- Профиль без поля туториала — игрок из ранней версии, туториал ему не нужен.
-		tutorial = if type(data.tutorial) == "number" then data.tutorial else Tutorial.DONE,
-		stats = if type(data.stats) == "table" then data.stats else fresh.stats,
+		tutorial = field(data.tutorial, "number", Tutorial.DONE),
+		stats = field(data.stats, "table", fresh.stats),
+		rolls = field(data.rolls, "number", 0),
+		luckLevel = field(data.luckLevel, "number", 0),
+		speedLevel = field(data.speedLevel, "number", 0),
+		found = field(data.found, "table", {}),
+		playSeconds = field(data.playSeconds, "number", 0),
+		islandTier = field(data.islandTier, "number", 0),
+		autoRoll = field(data.autoRoll, "boolean", false),
 	}
-	for i = #p.plots + 1, Config.StartingPlots do
-		p.plots[i] = fresh.plots[i]
+	-- Уровень острова для старых профилей: не меньше, чем уже есть грядок.
+	if p.islandTier < 1 then
+		p.islandTier = 1
+		while Garden.islandPlots(p.islandTier) < #p.plots and p.islandTier < #Config.Island do
+			p.islandTier += 1
+		end
+	end
+	p.islandTier = math.clamp(p.islandTier, 1, #Config.Island)
+	-- Убрать неизвестные виды (старые версии) и дополнить грядки до размера острова.
+	for id in p.seeds do
+		if not Garden.tree(id) then
+			p.seeds[id] = nil
+		end
+	end
+	for i, plot in p.plots do
+		if plot.plantId and not Garden.tree(plot.plantId) then
+			p.plots[i] = emptyPlot()
+		elseif plot.plantId then
+			p.found[plot.plantId] = true
+		end
+	end
+	for id in p.seeds do
+		p.found[id] = true
+	end
+	for i = #p.plots + 1, Garden.islandPlots(p.islandTier) do
+		p.plots[i] = emptyPlot()
 	end
 	-- Уже сажал деревья, но туториал на первом шаге: прошлые версии игры, пропускаем.
 	if p.tutorial == Tutorial.PLANT then

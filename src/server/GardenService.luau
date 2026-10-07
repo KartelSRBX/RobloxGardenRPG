@@ -131,16 +131,54 @@ function GardenService.fertilize(profile: Profile, slot: number): string?
 	return nil
 end
 
-function GardenService.buyPlot(profile: Profile): string?
-	local price = Garden.plotPrice(#profile.plots)
-	if not price then
-		return "max_plots"
+-- Сколько ростков всего в запасе.
+function GardenService.seedCount(profile: Profile): number
+	local total = 0
+	for _, n in profile.seeds do
+		total += n
 	end
-	if profile.coins < price then
+	return total
+end
+
+-- Расширение острова: нужно время в игре, монеты и ростки (тратятся самые частые).
+function GardenService.expand(profile: Profile): string?
+	local nextTier = Garden.nextIsland(profile.islandTier)
+	if not nextTier then
+		return "max_island"
+	end
+	if profile.playSeconds < nextTier.minutes * 60 then
+		return "need_time"
+	end
+	if profile.coins < nextTier.coins then
 		return "not_enough_coins"
 	end
-	profile.coins -= price
-	table.insert(profile.plots, emptyPlot())
+	if GardenService.seedCount(profile) < nextTier.seeds then
+		return "need_seeds"
+	end
+	profile.coins -= nextTier.coins
+	local ids = {}
+	for id in profile.seeds do
+		table.insert(ids, id)
+	end
+	table.sort(ids, function(a, b)
+		return (Garden.tree(a) :: Garden.Tree).n < (Garden.tree(b) :: Garden.Tree).n
+	end)
+	local left = nextTier.seeds
+	for _, id in ids do
+		local take = math.min(left, profile.seeds[id])
+		profile.seeds[id] -= take
+		if profile.seeds[id] <= 0 then
+			profile.seeds[id] = nil
+		end
+		left -= take
+		if left <= 0 then
+			break
+		end
+	end
+	profile.islandTier += 1
+	for _ = #profile.plots + 1, nextTier.plots do
+		table.insert(profile.plots, emptyPlot())
+	end
 	return nil
 end
 
