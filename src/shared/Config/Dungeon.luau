@@ -34,22 +34,16 @@ return {
 		touchRange = 5, -- враг бьёт, если ближе
 		attackCooldown = 1.2,
 	},
-	-- Баффы из сада: за каждый уровень каждого посаженного дерева.
+	-- Баффы из сада: от корня суммы уровней посаженных деревьев (быстро в начале, медленно потом).
 	buffs = {
-		hpPerTreeLevel = 3,
-		damagePerTreeLevel = 0.02, -- +2% урона
+		hpPerSqrtLevel = 8,
+		damagePerSqrtLevel = 0.06, -- +6% урона
 	},
 	-- Добыча за зачищенную волну (шансы в процентах, показываются в лобби).
+	-- Росток из подземелья — крутка с удачей игрока, умноженной на seedLuckMult.
 	loot = {
 		fertilizerChance = 40,
-		seedChance = 30,
-		-- редкость выпавшего семени, сумма 100
-		seedOdds = {
-			{ rarity = "common", chance = 35 },
-			{ rarity = "uncommon", chance = 30 },
-			{ rarity = "rare", chance = 20 },
-			{ rarity = "epic", chance = 11 },
-			{ rarity = "legendary", chance = 4 },
-		},
+		seedChance = 50,
+		seedLuckMult = 3,
 	},
 }

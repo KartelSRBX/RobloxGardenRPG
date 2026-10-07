@@ -9,22 +9,26 @@ local Remotes = {
 	-- RemoteFunction: клиент просит, сервер отвечает { ok, error?, ... }
 	functions = {
 		"GetState",
-		"Spin",
+		"Roll",
+		"SetAutoRoll",
+		"BuyLuck",
+		"BuySpeed",
 		"Plant",
 		"Harvest",
 		"Upgrade",
 		"Remove",
 		"Fertilize",
-		"BuyPlot",
+		"Expand",
 		"GoHome",
+		"GoHub",
 		"DungeonEnter",
 		"DungeonAttack",
 		"DungeonRevive",
 		"DungeonLeave",
 	},
 	-- RemoteEvent: State — снимок профиля, Dungeon — состояние забега,
-	-- Fx — эффекты (монеты над грядкой, удары)
-	events = { "State", "Dungeon", "Fx" },
+	-- Fx — эффекты (монеты над грядкой, удары), Rolled — результат авто-крутки
+	events = { "State", "Dungeon", "Fx", "Rolled" },
 }
 
 local function folder(): Folder

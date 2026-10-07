@@ -1,7 +1,7 @@
 --!strict
--- Чистые формулы сада: общие для сервера (расчёт) и клиента (отображение).
+-- Чистые формулы сада и острова: общие для сервера (расчёт) и клиента (отображение).
 local Config = require(script.Parent.Config)
-local Plants = require(script.Parent.Config.Plants)
+local Trees = require(script.Parent.Config.Trees)
 
 export type Plot = {
 	plantId: string?,
@@ -11,21 +11,29 @@ export type Plot = {
 	mutationRolled: boolean,
 }
 
+export type Tree = Trees.Tree
+
 local Garden = {}
 
-local byId: { [string]: Plants.Plant } = {}
-local byRarity: { [string]: Plants.Plant } = {}
-for _, p in Config.Plants do
-	byId[p.id] = p
-	byRarity[p.rarity] = p
+local byId: { [string]: Tree } = {}
+for _, t in Config.Trees do
+	byId[t.id] = t
 end
 
-function Garden.plant(id: string): Plants.Plant?
-	return byId[id]
+function Garden.tree(id: string?): Tree?
+	return if id then byId[id] else nil
 end
 
-function Garden.plantForRarity(rarity: string): Plants.Plant?
-	return byRarity[rarity]
+-- Совместимость со старым названием.
+Garden.plant = Garden.tree
+
+function Garden.rarity(id: string)
+	for _, r in Config.Rarities do
+		if r.id == id then
+			return r
+		end
+	end
+	return Config.Rarities[1]
 end
 
 function Garden.mutation(id: string?)
@@ -40,53 +48,60 @@ function Garden.mutation(id: string?)
 	return nil
 end
 
-function Garden.stageName(plant: Plants.Plant, level: number): string
-	local idx = math.clamp(math.ceil(level / 2), 1, #plant.stages)
-	return plant.stages[idx]
+-- Монет в минуту на 1 уровне.
+function Garden.baseIncome(tree: Tree): number
+	local e = Config.Economy
+	return e.incomeBase * tree.n ^ e.incomeExp
 end
 
-function Garden.growTime(plant: Plants.Plant, level: number): number
-	local mult = 1 - Config.Upgrade.timeCutPerLevel * (level - 1)
-	return math.max(1, math.floor(plant.growTime * mult))
+function Garden.yieldMult(level: number): number
+	return 1 + Config.Upgrade.yieldPerLevel * (level - 1)
 end
 
-function Garden.fruitPrice(plant: Plants.Plant, level: number): number
-	return plant.fruitPrice * (1 + Config.Upgrade.priceBonusPerLevel * (level - 1))
+function Garden.incomePerMinute(tree: Tree, level: number): number
+	return Garden.baseIncome(tree) * Garden.yieldMult(level)
 end
 
--- Доход за урожай с учётом мутации, целые монеты.
-function Garden.harvestValue(plant: Plants.Plant, level: number, mutation: string?): number
+function Garden.growTime(tree: Tree, _level: number?): number
+	local e = Config.Economy
+	return math.max(5, math.floor(e.growBase * tree.n ^ e.growExp))
+end
+
+-- Доход за один урожай с учётом мутации, целые монеты.
+function Garden.harvestValue(tree: Tree, level: number, mutation: string?): number
 	local m = Garden.mutation(mutation)
 	local mult = if m then m.priceMult else 1
-	return math.floor(plant.fruits * Garden.fruitPrice(plant, level) * mult)
+	local perHarvest = Garden.incomePerMinute(tree, level) * Garden.growTime(tree) / 60
+	return math.max(1, math.floor(perHarvest * mult))
 end
 
 -- Цена прокачки с текущего уровня на следующий; nil, если уровень максимальный.
-function Garden.upgradeCost(plant: Plants.Plant, level: number): number?
-	if level >= Config.Upgrade.maxLevel then
+function Garden.upgradeCost(tree: Tree, level: number): number?
+	local u = Config.Upgrade
+	if level >= u.maxLevel then
 		return nil
 	end
-	return math.floor(plant.upgradeBase * Config.Upgrade.costGrowth ^ (level - 1))
+	return math.floor(Garden.baseIncome(tree) * u.firstCostMinutes * u.costGrowth ^ (level - 1))
 end
 
--- Цена следующей грядки за монеты; nil, если куплены все.
-function Garden.plotPrice(owned: number): number?
-	if owned >= Config.MaxPlots then
+-- Визуальная стадия 1..6 (растёт каждые levelsPerStage уровней).
+function Garden.stage(level: number): number
+	return math.clamp(1 + level // Config.Upgrade.levelsPerStage, 1, 6)
+end
+
+function Garden.compostValue(tree: Tree): number
+	return math.max(1, math.floor(Garden.baseIncome(tree) * Config.Economy.compostSeconds / 60))
+end
+
+function Garden.readyAt(plot: Plot): number?
+	local tree = Garden.tree(plot.plantId)
+	if not tree then
 		return nil
 	end
-	return Config.PlotPrices[owned - Config.StartingPlots + 1]
+	return plot.plantedAt + Garden.growTime(tree)
 end
 
-function Garden.rarity(id: string)
-	for _, r in Config.Rarities do
-		if r.id == id then
-			return r
-		end
-	end
-	return Config.Rarities[1]
-end
-
--- Баффы подземелья от сада: сумма уровней посаженных деревьев.
+-- Баффы подземелья: от корня суммы уровней посаженных деревьев.
 function Garden.buffs(plots: { Plot }): (number, number)
 	local levels = 0
 	for _, plot in plots do
@@ -95,15 +110,18 @@ function Garden.buffs(plots: { Plot }): (number, number)
 		end
 	end
 	local b = Config.Dungeon.buffs
-	return levels * b.hpPerTreeLevel, levels * b.damagePerTreeLevel
+	local root = math.sqrt(levels)
+	return math.floor(root * b.hpPerSqrtLevel), root * b.damagePerSqrtLevel
 end
 
-function Garden.readyAt(plot: Plot): number?
-	local plant = plot.plantId and byId[plot.plantId]
-	if not plant then
-		return nil
-	end
-	return plot.plantedAt + Garden.growTime(plant, plot.level)
+-- Остров
+function Garden.islandPlots(tier: number): number
+	local t = Config.Island[math.clamp(tier, 1, #Config.Island)]
+	return t.plots
+end
+
+function Garden.nextIsland(tier: number)
+	return Config.Island[tier + 1]
 end
 
 return Garden
