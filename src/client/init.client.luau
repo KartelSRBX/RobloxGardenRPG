@@ -1,26 +1,24 @@
 --!strict
--- Точка входа клиента: монеты сверху, три главных экрана снизу (Сад, Крутилка, Подземелье).
+-- Точка входа клиента: HUD (монеты, три главных экрана, меню), панели, сад в мире,
+-- подсказки, эффекты и интерфейс подземелья.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
-local UI = require(script.UI)
+local DungeonHud = require(script.DungeonHud)
+local DungeonScreen = require(script.DungeonScreen)
+local Effects = require(script.Effects)
 local GardenScreen = require(script.GardenScreen)
+local Guide = require(script.Guide)
+local MenuScreen = require(script.MenuScreen)
 local SpinScreen = require(script.SpinScreen)
+local State = require(script.State)
+local UI = require(script.UI)
+local WorldPlots = require(script.WorldPlots)
 
 local player = Players.LocalPlayer
-
--- Понятные тексты для кодов ошибок сервера.
-local ERRORS: { [string]: string } = {
-	not_enough_coins = "Not enough coins",
-	not_loaded = "Loading...",
-	too_fast = "Slow down!",
-	not_ready = "Not ready yet",
-	max_level = "Max level!",
-	no_seed = "No seed",
-	occupied = "Plot is busy",
-}
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "GardenUI"
@@ -29,141 +27,224 @@ gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- Монеты.
-local top = UI.frame(gui, {
+-- HUD мира (прячется в подземелье)
+local worldHud =
+	UI.frame(gui, { Name = "WorldHud", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 })
+
+-- Монеты
+local coinsPill = UI.frame(worldHud, {
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 44),
-	Size = UDim2.new(0, 220, 0, 52),
+	Position = UDim2.new(0.5, 0, 0, 52),
+	Size = UDim2.fromOffset(230, 54),
 	BackgroundColor3 = UI.colors.bg,
+	BackgroundTransparency = 0.05,
 })
-UI.corner(top, 26)
-UI.stroke(top, UI.colors.gold)
-local coinsLabel = UI.label(top, "...", {
-	Size = UDim2.new(1, -24, 1, -12),
-	Position = UDim2.fromOffset(12, 6),
+UI.corner(coinsPill, 27)
+UI.stroke(coinsPill, UI.colors.gold, 3)
+local coinsScale = Instance.new("UIScale")
+coinsScale.Parent = coinsPill
+local coinIcon = UI.label(
+	coinsPill,
+	"💰",
+	{ Size = UDim2.fromOffset(44, 44), Position = UDim2.fromOffset(6, 5) }
+)
+coinIcon.TextScaled = true
+local coinsLabel = UI.label(coinsPill, "...", {
+	Size = UDim2.new(1, -64, 1, -14),
+	Position = UDim2.fromOffset(54, 7),
 	TextColor3 = UI.colors.gold,
+	TextXAlignment = Enum.TextXAlignment.Left,
 })
+UI.textStroke(coinsLabel, 2)
 
--- Область экранов.
-local pages = UI.frame(gui, {
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 108),
-	Size = UDim2.new(1, -24, 1, -108 - 100),
-	BackgroundTransparency = 1,
-})
-local maxWidth = Instance.new("UISizeConstraint")
-maxWidth.MaxSize = Vector2.new(640, math.huge)
-maxWidth.Parent = pages
-
--- Всплывающие сообщения.
+-- Тост
 local toastLabel = UI.label(gui, "", {
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -104),
-	Size = UDim2.new(0.8, 0, 0, 44),
-	BackgroundTransparency = 0.2,
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 176),
+	Size = UDim2.new(0.8, 0, 0, 48),
+	BackgroundTransparency = 0.1,
 	BackgroundColor3 = UI.colors.bg,
 	Visible = false,
-	ZIndex = 20,
+	ZIndex = 40,
 })
-UI.corner(toastLabel)
+local toastLimit = Instance.new("UISizeConstraint")
+toastLimit.MaxSize = Vector2.new(520, 48)
+toastLimit.Parent = toastLabel
+UI.corner(toastLabel, 24)
+UI.stroke(toastLabel, UI.colors.blue, 2)
+local toastPad = Instance.new("UIPadding")
+toastPad.PaddingTop = UDim.new(0, 8)
+toastPad.PaddingBottom = UDim.new(0, 8)
+toastPad.Parent = toastLabel
 local toastId = 0
 local function toast(text: string)
 	toastId += 1
 	local id = toastId
-	toastLabel.Text = ERRORS[text] or text
+	toastLabel.Text = text
 	toastLabel.Visible = true
-	task.delay(2, function()
+	task.delay(2.2, function()
 		if toastId == id then
 			toastLabel.Visible = false
 		end
 	end)
 end
 
-local function request(name: string, ...: any): { [string]: any }
-	local ok, res = pcall(Remotes.fn(name).InvokeServer, Remotes.fn(name), ...)
-	if ok and type(res) == "table" then
-		return res
+-- Панели
+local panels = UI.frame(
+	gui,
+	{ Name = "Panels", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 5 }
+)
+local screens: { [string]: any } = {}
+local current: string? = nil
+local navButtons: { [string]: TextButton } = {}
+
+local function close()
+	for _, s in screens do
+		s.setVisible(false)
 	end
-	return { ok = false, error = "Connection problem" }
+	current = nil
+	for _, b in navButtons do
+		b.BackgroundColor3 = b:GetAttribute("Color") :: Color3
+	end
 end
-
--- Нижняя панель: три главных экрана.
-local nav = UI.frame(gui, {
-	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -12),
-	Size = UDim2.new(1, -24, 0, 80),
-	BackgroundTransparency = 1,
-})
-local navMax = Instance.new("UISizeConstraint")
-navMax.MaxSize = Vector2.new(640, math.huge)
-navMax.Parent = nav
-local navLayout = Instance.new("UIListLayout")
-navLayout.FillDirection = Enum.FillDirection.Horizontal
-navLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-navLayout.Padding = UDim.new(0.02, 0)
-navLayout.Parent = nav
-
-local screens: { [string]: { setVisible: (boolean) -> () } } = {}
-local tabs: { [string]: TextButton } = {}
 
 local function open(name: string)
-	for key, screen in screens do
-		screen.setVisible(key == name)
+	if State.inRun() then
+		return
 	end
-	for key, tab in tabs do
-		tab.BackgroundColor3 = if key == name then UI.colors.blue else UI.colors.panel
+	if current == name then
+		close()
+		return
+	end
+	close()
+	local s = screens[name]
+	if s then
+		s.setVisible(true)
+		current = name
+		local b = navButtons[name]
+		if b then
+			b.BackgroundColor3 = UI.colors.text
+		end
 	end
 end
 
-local garden = GardenScreen.new(pages, {
-	request = request,
+local ctx = {
 	toast = toast,
-	openSpin = function()
-		open("Spin")
+	open = open,
+	close = close,
+	celebrate = Effects.confetti,
+	hintsEnabled = Guide.enabled,
+	setHints = Guide.setEnabled,
+	setWorldHud = function(v: boolean)
+		worldHud.Visible = v
 	end,
-})
-local spin = SpinScreen.new(pages, { request = request, toast = toast })
-screens.Garden = garden
-screens.Spin = spin
+	openPicker = function(_slot: number) end,
+}
 
-for i, name in { "Garden", "Spin", "Dungeon" } do
-	local tab = UI.button(nav, name, UI.colors.panel, {
-		Size = UDim2.fromScale(0.32, 1),
-		LayoutOrder = i,
+local garden = GardenScreen.new(panels, ctx)
+screens.Garden = garden
+screens.Spin = SpinScreen.new(panels, ctx)
+screens.Dungeon = DungeonScreen.new(panels, ctx)
+screens.Menu = MenuScreen.new(panels, ctx)
+ctx.openPicker = function(slot: number)
+	close()
+	garden.setVisible(true)
+	current = "Garden"
+	garden.openPicker(slot)
+end
+
+-- Три главных экрана: крупные кнопки слева по центру (не мешают джойстику и прыжку)
+local nav = UI.frame(worldHud, {
+	AnchorPoint = Vector2.new(0, 0.5),
+	Position = UDim2.new(0, 14, 0.5, 0),
+	Size = UDim2.fromOffset(92, 3 * 104),
+	BackgroundTransparency = 1,
+})
+UI.list(nav, 10)
+for i, item in
+	{
+		{ "Garden", "🌳", UI.colors.green },
+		{ "Spin", "🎲", UI.colors.gold },
+		{ "Dungeon", "⚔️", UI.colors.purple },
+	}
+do
+	local name, icon, color = item[1], item[2], item[3]
+	local b = UI.button(nav, "", color, { Size = UDim2.fromOffset(88, 88), LayoutOrder = i })
+	b:SetAttribute("Color", color)
+	UI.stroke(b, Color3.new(1, 1, 1), 3)
+	local iconLabel = UI.label(b, icon, { Size = UDim2.new(1, 0, 0.7, 0) })
+	iconLabel.TextScaled = true
+	local text = UI.label(b, name, {
+		Size = UDim2.new(1, 8, 0.38, 0),
+		Position = UDim2.new(0, -4, 0.78, 0),
 	})
-	tabs[name] = tab
-	tab.Activated:Connect(function()
-		if name == "Dungeon" then
-			toast("Dungeon is coming soon!")
-			return
-		end
+	UI.textStroke(text, 2)
+	b.Activated:Connect(function()
 		open(name)
 	end)
+	navButtons[name] = b
 end
-tabs.Dungeon.TextTransparency = 0.5
 
-local function onState(profile: any)
-	coinsLabel.Text = UI.formatNumber(profile.coins) .. " coins"
-	garden.setProfile(profile)
-	spin.setProfile(profile)
+-- Меню справа сверху
+local menuButton = UI.button(worldHud, "⚙️", UI.colors.blue, {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -14, 0, 52),
+	Size = UDim2.fromOffset(64, 64),
+	TextSize = 36,
+	TextScaled = false,
+})
+UI.stroke(menuButton, Color3.new(1, 1, 1), 3)
+menuButton.Activated:Connect(function()
+	open("Menu")
+end)
+
+DungeonHud.new(gui, ctx)
+Effects.init(gui)
+
+-- Состояние с сервера
+local lastCoins: number? = nil
+local function onState(profile: any, meta: any?)
+	if type(profile) ~= "table" then
+		return
+	end
+	State.set(profile, meta)
+	coinsLabel.Text = UI.formatNumber(profile.coins)
+	if lastCoins and profile.coins > lastCoins then
+		coinsScale.Scale = 1.2
+		TweenService:Create(coinsScale, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Scale = 1 })
+			:Play()
+	end
+	lastCoins = profile.coins
+	for _, s in screens do
+		if s.visible() and s.refresh then
+			s.refresh(workspace:GetServerTimeNow())
+		end
+	end
 end
 
 Remotes.event("State").OnClientEvent:Connect(onState)
-open("Garden")
+Remotes.event("Dungeon").OnClientEvent:Connect(State.setDungeon)
+Remotes.event("Fx").OnClientEvent:Connect(Effects.handle)
+
 task.spawn(function()
-	local profile = Remotes.fn("GetState"):InvokeServer()
+	local profile, meta = Remotes.fn("GetState"):InvokeServer()
 	if profile then
-		onState(profile)
+		onState(profile, meta)
 	end
 end)
 
--- Таймеры роста по серверному времени.
+WorldPlots.start(ctx)
+Guide.start(gui)
+
+-- Таймеры в панели сада по серверному времени
 local acc = 0
 RunService.Heartbeat:Connect(function(dt)
 	acc += dt
-	if acc >= 0.2 then
+	if acc >= 0.25 then
 		acc = 0
-		garden.tick(workspace:GetServerTimeNow())
+		if garden.visible() then
+			garden.refresh(workspace:GetServerTimeNow())
+		end
 	end
 end)
 

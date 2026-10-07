@@ -1,58 +1,72 @@
 --!strict
--- Экран «Крутилка»: шансы каждого исхода числом (сумма 100%), кнопка броска,
--- анимация. Результат приходит с сервера, анимация лишь подводит к нему.
+-- Панель «Seed Spin»: шанс каждого исхода числом (сумма 100%), кнопка броска,
+-- анимация барабана. Результат приходит с сервера, анимация лишь подводит к нему.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Garden = require(ReplicatedStorage.Shared.Garden)
+local Net = require(script.Parent.Net)
+local State = require(script.Parent.State)
 local UI = require(script.Parent.UI)
-
-type Callbacks = {
-	request: (name: string, ...any) -> { [string]: any },
-	toast: (text: string) -> (),
-}
 
 local SpinScreen = {}
 
-function SpinScreen.new(parent: Instance, cb: Callbacks)
-	local root = UI.frame(parent, {
-		Name = "Spin",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		Visible = false,
+function SpinScreen.new(parent: Instance, ctx: any)
+	local panel = UI.panel(parent, "🎲", "Seed Spin", UI.colors.gold, ctx.close)
+	local content = panel.content
+	local scroll = UI.scroll(content)
+	UI.list(scroll, 10)
+	local scrollPad = Instance.new("UIPadding")
+	scrollPad.PaddingTop = UDim.new(0, 4)
+	scrollPad.PaddingRight = UDim.new(0, 8)
+	scrollPad.Parent = scroll
+
+	-- Окно результата
+	local reveal = UI.frame(scroll, {
+		Size = UDim2.new(1, -8, 0, 120),
+		BackgroundColor3 = UI.colors.panel,
+		LayoutOrder = 1,
+	})
+	UI.corner(reveal, 18)
+	local revealStroke = UI.stroke(reveal, UI.colors.disabled, 5)
+	local revealScale = Instance.new("UIScale")
+	revealScale.Parent = reveal
+	local revealIcon = UI.label(reveal, "🎁", {
+		Size = UDim2.new(0, 90, 1, -20),
+		Position = UDim2.fromOffset(12, 10),
+	})
+	local revealText = UI.label(reveal, "Spin to get a seed!", {
+		Size = UDim2.new(1, -120, 0, 50),
+		Position = UDim2.fromOffset(110, 18),
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	local revealSub = UI.label(reveal, "", {
+		Size = UDim2.new(1, -120, 0, 30),
+		Position = UDim2.fromOffset(110, 70),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextColor3 = UI.colors.muted,
 	})
 
-	-- Окно результата.
-	local reveal = UI.frame(root, {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0),
-		Size = UDim2.new(0.9, 0, 0, 110),
-		BackgroundColor3 = UI.colors.bg,
-	})
-	UI.corner(reveal, 16)
-	local revealStroke = Instance.new("UIStroke")
-	revealStroke.Thickness = 5
-	revealStroke.Color = UI.colors.disabled
-	revealStroke.Parent = reveal
-	local revealText = UI.label(reveal, "?", {
-		Size = UDim2.new(1, -24, 1, -24),
-		Position = UDim2.fromOffset(12, 12),
+	local spinButton = UI.button(scroll, `SPIN  ·  💰 {Config.SpinCost}`, UI.colors.gold, {
+		Size = UDim2.new(0.86, 0, 0, 74),
+		LayoutOrder = 2,
 	})
 
-	-- Таблица шансов: каждый исход и его процент.
-	local odds = UI.frame(root, {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 124),
-		Size = UDim2.new(0.9, 0, 0, 5 * 46 + 8),
+	-- Таблица шансов: каждый исход и его процент
+	UI.label(scroll, "Chances", {
+		Size = UDim2.new(1, 0, 0, 30),
+		LayoutOrder = 3,
+		TextColor3 = UI.colors.muted,
+	})
+	local odds = UI.frame(scroll, {
+		Size = UDim2.new(1, -8, 0, #Config.Rarities * 50 + 12),
+		LayoutOrder = 4,
 	})
 	UI.corner(odds, 16)
-	local oddsLayout = Instance.new("UIListLayout")
-	oddsLayout.Padding = UDim.new(0, 6)
-	oddsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	oddsLayout.Parent = odds
+	UI.list(odds, 6)
 	local oddsPad = Instance.new("UIPadding")
-	oddsPad.PaddingTop = UDim.new(0, 6)
+	oddsPad.PaddingTop = UDim.new(0, 8)
 	oddsPad.PaddingLeft = UDim.new(0, 12)
 	oddsPad.PaddingRight = UDim.new(0, 12)
 	oddsPad.Parent = odds
@@ -64,100 +78,111 @@ function SpinScreen.new(parent: Instance, cb: Callbacks)
 	for _, r in Config.Rarities do
 		local plant = Garden.plantForRarity(r.id)
 		local row = UI.frame(odds, {
-			Size = UDim2.new(1, 0, 0, 40),
-			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, 44),
+			BackgroundColor3 = UI.colors.bg,
 			LayoutOrder = r.order,
 		})
-		UI.label(row, if plant then plant.stages[1] else r.name, {
-			Size = UDim2.fromScale(0.7, 1),
+		UI.corner(row, 10)
+		UI.stroke(row, r.color, 2)
+		UI.label(row, if plant then `{plant.icon} {plant.stages[1]}` else r.name, {
+			Size = UDim2.new(0.5, -10, 0.7, 0),
+			Position = UDim2.new(0, 10, 0.15, 0),
 			TextXAlignment = Enum.TextXAlignment.Left,
+		})
+		UI.label(row, r.name, {
+			Size = UDim2.new(0.25, 0, 0.6, 0),
+			Position = UDim2.fromScale(0.5, 0.2),
 			TextColor3 = r.color,
 		})
 		-- Процент от суммы: если сумма в конфиге поедет, игрок всё равно увидит 100%.
-		local pct = r.chance / total * 100
-		UI.label(row, (string.format("%.1f", pct):gsub("%.0$", "")) .. "%", {
-			Size = UDim2.fromScale(0.3, 1),
-			Position = UDim2.fromScale(0.7, 0),
+		UI.label(row, UI.percent(r.chance / total * 100), {
+			Size = UDim2.new(0.25, -10, 0.7, 0),
+			Position = UDim2.fromScale(0.75, 0.15),
 			TextXAlignment = Enum.TextXAlignment.Right,
 		})
 	end
-
-	local spinButton = UI.button(root, `Spin  ·  {Config.SpinCost} coins`, UI.colors.gold, {
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 124 + 5 * 46 + 20),
-		Size = UDim2.new(0.8, 0, 0, 72),
-		TextColor3 = UI.colors.bg,
+	UI.label(scroll, "Coins come only from playing. No Robux spins.", {
+		Size = UDim2.new(1, 0, 0, 22),
+		LayoutOrder = 5,
+		TextColor3 = UI.colors.muted,
 	})
 
 	local spinning = false
-	local coins = 0
 
-	local function show(plantId: string)
+	local function show(plantId: string, final: boolean)
 		local plant = Garden.plant(plantId)
 		if not plant then
 			return
 		end
-		local color = UI.colors.text
-		for _, r in Config.Rarities do
-			if r.id == plant.rarity then
-				color = r.color
-			end
-		end
+		local r = Garden.rarity(plant.rarity)
+		revealIcon.Text = plant.icon
 		revealText.Text = plant.stages[1]
-		revealText.TextColor3 = color
-		revealStroke.Color = color
+		revealText.TextColor3 = r.color
+		revealSub.Text = if final then `{r.name} seed!` else ""
+		revealStroke.Color = r.color
 	end
 
 	spinButton.Activated:Connect(function()
 		if spinning then
 			return
 		end
-		if coins < Config.SpinCost then
-			cb.toast("Not enough coins. Harvest your garden!")
+		if (State.profile and State.profile.coins or 0) < Config.SpinCost then
+			ctx.toast("Not enough coins. Harvest your trees!")
 			return
 		end
 		spinning = true
-		-- Перебор вариантов, пока ждём ответ сервера, затем замедление на результате.
+		-- Перебор вариантов, пока ждём ответ сервера, затем остановка на результате.
 		local stop = false
 		task.spawn(function()
 			local i = 0
 			while not stop do
 				i += 1
-				show(Config.Plants[(i - 1) % #Config.Plants + 1].id)
-				task.wait(0.06)
+				show(Config.Plants[(i - 1) % #Config.Plants + 1].id, false)
+				revealScale.Scale = 0.96
+				task.wait(0.07 + math.min(i, 20) * 0.006)
 			end
 		end)
-		local res = cb.request("Spin")
-		task.wait(0.6)
+		local res = Net.request("Spin")
+		task.wait(0.8)
 		stop = true
+		task.wait(0.1)
 		if res.ok then
-			show(res.plantId)
-			reveal.Size = UDim2.new(0.95, 0, 0, 120)
-			TweenService:Create(reveal, TweenInfo.new(0.3, Enum.EasingStyle.Back), {
-				Size = UDim2.new(0.9, 0, 0, 110),
-			}):Play()
-			cb.toast(`Got a seed: {revealText.Text}`)
+			show(res.plantId, true)
+			revealScale.Scale = 1.25
+			TweenService
+				:Create(revealScale, TweenInfo.new(0.4, Enum.EasingStyle.Back), { Scale = 1 })
+				:Play()
+			ctx.celebrate(Garden.rarity((Garden.plant(res.plantId) :: any).rarity).color)
 		else
-			revealText.Text = "?"
+			revealScale.Scale = 1
+			revealIcon.Text = "🎁"
+			revealText.Text = "Spin to get a seed!"
 			revealText.TextColor3 = UI.colors.text
+			revealSub.Text = ""
 			revealStroke.Color = UI.colors.disabled
-			cb.toast(res.error or "error")
+			ctx.toast(Net.errorText(res.error))
 		end
 		spinning = false
 	end)
 
 	local screen = {}
 
-	function screen.setProfile(p: any)
-		coins = p.coins
+	function screen.refresh()
+		local coins = State.profile and State.profile.coins or 0
 		spinButton.BackgroundColor3 = if coins >= Config.SpinCost
 			then UI.colors.gold
 			else UI.colors.disabled
 	end
 
 	function screen.setVisible(v: boolean)
-		root.Visible = v
+		panel.setVisible(v)
+		if v then
+			screen.refresh()
+		end
 	end
+
+	screen.visible = panel.visible
+	screen.spinButton = spinButton
 
 	return screen
 end
