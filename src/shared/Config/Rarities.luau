@@ -7,14 +7,45 @@ export type Rarity = {
 	name: string,
 	chance: number, -- в процентах
 	order: number,
+	color: Color3, -- рамка редкости в UI
 }
 
 local Rarities: { Rarity } = {
-	{ id = "common", name = "Обычная", chance = 50, order = 1 },
-	{ id = "uncommon", name = "Необычная", chance = 30, order = 2 },
-	{ id = "rare", name = "Редкая", chance = 14, order = 3 },
-	{ id = "epic", name = "Эпическая", chance = 5, order = 4 },
-	{ id = "legendary", name = "Легендарная", chance = 1, order = 5 },
+	{
+		id = "common",
+		name = "Обычная",
+		chance = 50,
+		order = 1,
+		color = Color3.fromRGB(150, 150, 160),
+	},
+	{
+		id = "uncommon",
+		name = "Необычная",
+		chance = 30,
+		order = 2,
+		color = Color3.fromRGB(80, 200, 90),
+	},
+	{
+		id = "rare",
+		name = "Редкая",
+		chance = 14,
+		order = 3,
+		color = Color3.fromRGB(70, 140, 255),
+	},
+	{
+		id = "epic",
+		name = "Эпическая",
+		chance = 5,
+		order = 4,
+		color = Color3.fromRGB(170, 80, 230),
+	},
+	{
+		id = "legendary",
+		name = "Легендарная",
+		chance = 1,
+		order = 5,
+		color = Color3.fromRGB(255, 190, 40),
+	},
 }
 
 return Rarities
