@@ -3,6 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Garden = require(ReplicatedStorage.Shared.Garden)
+local Tutorial = require(ReplicatedStorage.Shared.Tutorial)
 local DataService = require(script.Parent.DataService)
 
 local SpinService = {}
@@ -40,6 +41,9 @@ function SpinService.spin(player: Player): (string?, string?)
 	end
 	profile.coins -= Config.SpinCost
 	profile.seeds[plant.id] = (profile.seeds[plant.id] or 0) + 1
+	if profile.tutorial == Tutorial.SPIN then
+		profile.tutorial = Tutorial.HARVEST
+	end
 	return plant.id, nil
 end
 

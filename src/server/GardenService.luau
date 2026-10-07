@@ -1,9 +1,10 @@
 --!strict
 -- Грядки: посадка, рост по серверному времени, мутация при созревании,
--- сбор урожая с автопродажей, прокачка дерева, выкапывание.
+-- сбор урожая с автопродажей, прокачка дерева, удобрение, покупка грядок, выкапывание.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Garden = require(ReplicatedStorage.Shared.Garden)
+local Tutorial = require(ReplicatedStorage.Shared.Tutorial)
 local DataService = require(script.Parent.DataService)
 
 type Profile = DataService.Profile
@@ -24,8 +25,8 @@ local function rollMutation(): string?
 	return nil
 end
 
-local function getPlot(profile: Profile, slot: number): Garden.Plot?
-	return profile.plots[slot]
+local function emptyPlot(): Garden.Plot
+	return { level = 0, plantedAt = 0, mutationRolled = false }
 end
 
 -- Бросает мутацию на созревших грядках. true, если что-то изменилось.
@@ -43,7 +44,7 @@ function GardenService.tick(profile: Profile, now: number): boolean
 end
 
 function GardenService.plant(profile: Profile, slot: number, plantId: string): string?
-	local plot = getPlot(profile, slot)
+	local plot = profile.plots[slot]
 	if not plot then
 		return "bad_slot"
 	end
@@ -63,11 +64,15 @@ function GardenService.plant(profile: Profile, slot: number, plantId: string): s
 	plot.plantedAt = os.time()
 	plot.mutation = nil
 	plot.mutationRolled = false
+	if profile.tutorial == Tutorial.PLANT then
+		profile.tutorial = Tutorial.SPIN
+	end
 	return nil
 end
 
-function GardenService.harvest(profile: Profile, slot: number): (number?, string?)
-	local plot = getPlot(profile, slot)
+-- coinMult — множитель монет из геймпасса; на шансы не влияет.
+function GardenService.harvest(profile: Profile, slot: number, coinMult: number): (number?, string?)
+	local plot = profile.plots[slot]
 	local plant = plot and plot.plantId and Garden.plant(plot.plantId)
 	if not plot or not plant then
 		return nil, "empty"
@@ -78,16 +83,20 @@ function GardenService.harvest(profile: Profile, slot: number): (number?, string
 		return nil, "not_ready"
 	end
 	GardenService.tick(profile, now)
-	local value = Garden.harvestValue(plant, plot.level, plot.mutation)
+	local value = Garden.harvestValue(plant, plot.level, plot.mutation) * coinMult
 	profile.coins += value
+	profile.stats.harvests = (profile.stats.harvests or 0) + 1
 	plot.plantedAt = now
 	plot.mutation = nil
 	plot.mutationRolled = false
+	if profile.tutorial < Tutorial.DONE then
+		profile.tutorial = Tutorial.DONE
+	end
 	return value, nil
 end
 
 function GardenService.upgrade(profile: Profile, slot: number): string?
-	local plot = getPlot(profile, slot)
+	local plot = profile.plots[slot]
 	local plant = plot and plot.plantId and Garden.plant(plot.plantId)
 	if not plot or not plant then
 		return "empty"
@@ -104,16 +113,43 @@ function GardenService.upgrade(profile: Profile, slot: number): string?
 	return nil
 end
 
+function GardenService.fertilize(profile: Profile, slot: number): string?
+	local plot = profile.plots[slot]
+	local plant = plot and plot.plantId and Garden.plant(plot.plantId)
+	if not plot or not plant then
+		return "empty"
+	end
+	if plot.mutationRolled then
+		return "already_ready"
+	end
+	local have = profile.items.fertilizer or 0
+	if have <= 0 then
+		return "no_fertilizer"
+	end
+	profile.items.fertilizer = if have > 1 then have - 1 else nil
+	plot.plantedAt -= math.floor(Garden.growTime(plant, plot.level) * Config.Fertilizer.cut)
+	return nil
+end
+
+function GardenService.buyPlot(profile: Profile): string?
+	local price = Garden.plotPrice(#profile.plots)
+	if not price then
+		return "max_plots"
+	end
+	if profile.coins < price then
+		return "not_enough_coins"
+	end
+	profile.coins -= price
+	table.insert(profile.plots, emptyPlot())
+	return nil
+end
+
 function GardenService.remove(profile: Profile, slot: number): string?
-	local plot = getPlot(profile, slot)
+	local plot = profile.plots[slot]
 	if not plot or not plot.plantId then
 		return "empty"
 	end
-	plot.plantId = nil
-	plot.level = 0
-	plot.plantedAt = 0
-	plot.mutation = nil
-	plot.mutationRolled = false
+	profile.plots[slot] = emptyPlot()
 	return nil
 end
 

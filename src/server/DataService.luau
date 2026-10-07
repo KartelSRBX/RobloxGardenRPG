@@ -8,12 +8,16 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Garden = require(ReplicatedStorage.Shared.Garden)
+local Tutorial = require(ReplicatedStorage.Shared.Tutorial)
 
 export type Profile = {
 	version: number,
 	coins: number,
 	seeds: { [string]: number },
+	items: { [string]: number }, -- fertilizer
 	plots: { Garden.Plot },
+	tutorial: number, -- шаг туториала, Tutorial.DONE = пройден
+	stats: { [string]: number }, -- harvests, runs, bestWave
 }
 
 type Lock = { jobId: string, t: number }
@@ -46,8 +50,11 @@ local function newProfile(): Profile
 	return {
 		version = VERSION,
 		coins = Config.StartingCoins,
-		seeds = {},
+		seeds = table.clone(Config.StartingSeeds),
+		items = {},
 		plots = plots,
+		tutorial = 1,
+		stats = {},
 	}
 end
 
@@ -61,10 +68,23 @@ local function reconcile(data: any): Profile
 		version = VERSION,
 		coins = if type(data.coins) == "number" then data.coins else fresh.coins,
 		seeds = if type(data.seeds) == "table" then data.seeds else fresh.seeds,
+		items = if type(data.items) == "table" then data.items else fresh.items,
 		plots = if type(data.plots) == "table" then data.plots else fresh.plots,
+		-- Профиль без поля туториала — игрок из ранней версии, туториал ему не нужен.
+		tutorial = if type(data.tutorial) == "number" then data.tutorial else Tutorial.DONE,
+		stats = if type(data.stats) == "table" then data.stats else fresh.stats,
 	}
 	for i = #p.plots + 1, Config.StartingPlots do
 		p.plots[i] = fresh.plots[i]
+	end
+	-- Уже сажал деревья, но туториал на первом шаге: прошлые версии игры, пропускаем.
+	if p.tutorial == Tutorial.PLANT then
+		for _, plot in p.plots do
+			if plot.plantId then
+				p.tutorial = Tutorial.DONE
+				break
+			end
+		end
 	end
 	return p
 end
@@ -169,8 +189,21 @@ local function onPlayerAdded(player: Player)
 	loadedSignal:Fire(player)
 end
 
+-- Колбэки перед финальным сохранением при выходе (например, закрыть забег).
+local releaseHooks: { (Player, Profile) -> () } = {}
+function DataService.onRelease(fn: (Player, Profile) -> ())
+	table.insert(releaseHooks, fn)
+end
+
 local function onPlayerRemoving(player: Player)
-	if profiles[player] then
+	local profile = profiles[player]
+	if profile then
+		for _, fn in releaseHooks do
+			local hookOk, e = pcall(fn, player, profile)
+			if not hookOk then
+				warn("[Data] onRelease:", e)
+			end
+		end
 		save(player, true)
 		profiles[player] = nil
 	end
