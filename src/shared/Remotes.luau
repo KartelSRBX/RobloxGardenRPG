@@ -7,9 +7,24 @@ local FOLDER = "Remotes"
 
 local Remotes = {
 	-- RemoteFunction: клиент просит, сервер отвечает { ok, error?, ... }
-	functions = { "GetState", "Spin", "Plant", "Harvest", "Upgrade", "Remove" },
-	-- RemoteEvent: сервер шлёт клиенту снимок профиля
-	events = { "State" },
+	functions = {
+		"GetState",
+		"Spin",
+		"Plant",
+		"Harvest",
+		"Upgrade",
+		"Remove",
+		"Fertilize",
+		"BuyPlot",
+		"GoHome",
+		"DungeonEnter",
+		"DungeonAttack",
+		"DungeonRevive",
+		"DungeonLeave",
+	},
+	-- RemoteEvent: State — снимок профиля, Dungeon — состояние забега,
+	-- Fx — эффекты (монеты над грядкой, удары)
+	events = { "State", "Dungeon", "Fx" },
 }
 
 local function folder(): Folder

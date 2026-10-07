@@ -4,6 +4,8 @@
 -- ЧЕРНОВЫЕ числа для плейтеста. growTime — секунды, fruits — плодов за урожай,
 -- fruitPrice — цена плода на уровне 1 (плоды продаются автоматически при сборе),
 -- upgradeBase — цена первой прокачки (дальше по Config.Upgrade).
+-- Названия на английском (основной язык UI); русские — в «Визуал и экономика растений.md»,
+-- пойдут в таблицу локализации. Цвета — для воксельной модели дерева.
 
 export type Plant = {
 	id: string,
@@ -13,6 +15,9 @@ export type Plant = {
 	fruitPrice: number,
 	upgradeBase: number,
 	stages: { string },
+	icon: string,
+	fruitColor: Color3,
+	leafColor: Color3,
 }
 
 local Plants: { Plant } = {
@@ -24,12 +29,15 @@ local Plants: { Plant } = {
 		fruitPrice = 5,
 		upgradeBase = 40,
 		stages = {
-			"Яблоня",
-			"Яблоня Идуны",
-			"Золотая яблоня Гесперид",
-			"Древо Авалона",
-			"Иггдрасиль",
+			"Apple Tree",
+			"Idun's Apple",
+			"Golden Apple of Hesperides",
+			"Tree of Avalon",
+			"Yggdrasil",
 		},
+		icon = "🍎",
+		fruitColor = Color3.fromRGB(230, 50, 50),
+		leafColor = Color3.fromRGB(80, 170, 70),
 	},
 	{
 		id = "cherry",
@@ -39,12 +47,15 @@ local Plants: { Plant } = {
 		fruitPrice = 10,
 		upgradeBase = 100,
 		stages = {
-			"Вишня",
-			"Сакура Кодама",
-			"Вишня Аматэрасу",
-			"Сакура Кицунэ",
-			"Древо Фусан",
+			"Cherry Tree",
+			"Kodama Sakura",
+			"Amaterasu Cherry",
+			"Kitsune Sakura",
+			"Fusang Tree",
 		},
+		icon = "🍒",
+		fruitColor = Color3.fromRGB(180, 20, 50),
+		leafColor = Color3.fromRGB(255, 170, 200),
 	},
 	{
 		id = "pear",
@@ -54,12 +65,15 @@ local Plants: { Plant } = {
 		fruitPrice = 25,
 		upgradeBase = 300,
 		stages = {
-			"Груша",
-			"Эльфийская груша",
-			"Груша Алкиноя",
-			"Груша Титанов",
-			"Древо Мирового Света",
+			"Pear Tree",
+			"Elven Pear",
+			"Pear of Alcinous",
+			"Titan Pear",
+			"Tree of World Light",
 		},
+		icon = "🍐",
+		fruitColor = Color3.fromRGB(190, 220, 70),
+		leafColor = Color3.fromRGB(60, 150, 90),
 	},
 	{
 		id = "peach",
@@ -69,12 +83,15 @@ local Plants: { Plant } = {
 		fruitPrice = 70,
 		upgradeBase = 1000,
 		stages = {
-			"Персик",
-			"Персик Сиванму",
-			"Персик Бессмертия",
-			"Персик Нефритового императора",
-			"Древо Пэнлай",
+			"Peach Tree",
+			"Xiwangmu Peach",
+			"Peach of Immortality",
+			"Jade Emperor's Peach",
+			"Penglai Tree",
 		},
+		icon = "🍑",
+		fruitColor = Color3.fromRGB(255, 160, 120),
+		leafColor = Color3.fromRGB(110, 180, 80),
 	},
 	{
 		id = "orange",
@@ -84,12 +101,15 @@ local Plants: { Plant } = {
 		fruitPrice = 200,
 		upgradeBase = 5000,
 		stages = {
-			"Апельсин",
-			"Апельсин Саламандры",
-			"Огненный апельсин Феникса",
-			"Солнечное древо Ра",
-			"Древо Гелиоса",
+			"Orange Tree",
+			"Salamander Orange",
+			"Phoenix Fire Orange",
+			"Sun Tree of Ra",
+			"Tree of Helios",
 		},
+		icon = "🍊",
+		fruitColor = Color3.fromRGB(255, 140, 20),
+		leafColor = Color3.fromRGB(50, 140, 60),
 	},
 }
 

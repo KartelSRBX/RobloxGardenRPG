@@ -69,6 +69,35 @@ function Garden.upgradeCost(plant: Plants.Plant, level: number): number?
 	return math.floor(plant.upgradeBase * Config.Upgrade.costGrowth ^ (level - 1))
 end
 
+-- Цена следующей грядки за монеты; nil, если куплены все.
+function Garden.plotPrice(owned: number): number?
+	if owned >= Config.MaxPlots then
+		return nil
+	end
+	return Config.PlotPrices[owned - Config.StartingPlots + 1]
+end
+
+function Garden.rarity(id: string)
+	for _, r in Config.Rarities do
+		if r.id == id then
+			return r
+		end
+	end
+	return Config.Rarities[1]
+end
+
+-- Баффы подземелья от сада: сумма уровней посаженных деревьев.
+function Garden.buffs(plots: { Plot }): (number, number)
+	local levels = 0
+	for _, plot in plots do
+		if plot.plantId then
+			levels += plot.level
+		end
+	end
+	local b = Config.Dungeon.buffs
+	return levels * b.hpPerTreeLevel, levels * b.damagePerTreeLevel
+end
+
 function Garden.readyAt(plot: Plot): number?
 	local plant = plot.plantId and byId[plot.plantId]
 	if not plant then
