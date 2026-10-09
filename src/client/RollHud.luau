@@ -112,7 +112,7 @@ function RollHud.new(parent: Instance, ctx: any)
 		Size = UDim2.fromScale(0.62, 0.62),
 		BackgroundTransparency = 1,
 	})
-	Icons.sprout(iconHolder, Color3.fromRGB(150, 220, 120), Color3.fromRGB(110, 190, 100))
+	Icons.make("sprout", iconHolder, Color3.fromRGB(150, 220, 120), Color3.fromRGB(110, 190, 100))
 	local iconScale = Instance.new("UIScale")
 	iconScale.Parent = iconHolder
 
@@ -166,7 +166,7 @@ function RollHud.new(parent: Instance, ctx: any)
 		Size = UDim2.fromScale(0.56, 0.56),
 		BackgroundTransparency = 1,
 	})
-	local autoIcon = Icons.repeat_(autoIconHolder, UI.colors.muted)
+	local autoIcon = Icons.make("auto", autoIconHolder, UI.colors.muted)
 	local autoLabel = UI.label(root, "", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 88, 1, -56),
@@ -365,6 +365,98 @@ function RollHud.new(parent: Instance, ctx: any)
 	end
 
 	---------------------------------------------------------------- анимация барабана
+	---------------------------------------------------------------- частицы крутки
+	-- Цвет искр зависит от удачи игрока: чем выше удача, тем «дороже» цвет и гуще поток.
+	-- В последние мгновения искры принимают цвет выпавшей редкости — подсказка, что сейчас будет.
+	local fxLayer = UI.frame(root, {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		ZIndex = 6,
+	})
+	local LUCK_TIERS = {
+		{ 1.5, Color3.fromRGB(200, 210, 222), Color3.fromRGB(150, 230, 180) },
+		{ 3, Color3.fromRGB(110, 230, 170), Color3.fromRGB(170, 255, 210) },
+		{ 5, Color3.fromRGB(90, 160, 255), Color3.fromRGB(150, 220, 255) },
+		{ 8, Color3.fromRGB(180, 110, 255), Color3.fromRGB(255, 140, 220) },
+		{ math.huge, Color3.fromRGB(255, 196, 80), Color3.fromRGB(255, 240, 170) },
+	}
+	local function luckColors(luck: number): (Color3, Color3)
+		for _, tier in LUCK_TIERS do
+			if luck < tier[1] then
+				return tier[2], tier[3]
+			end
+		end
+		return GOLD[1], GOLD[3]
+	end
+
+	-- Одна искра: ромбик летит из точки и гаснет.
+	local function spark(from: Vector2, color: Color3, power: number)
+		local size = math.random(4, 7) + power
+		local p = UI.frame(fxLayer, {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(from.X, from.Y),
+			Size = UDim2.fromOffset(size, size),
+			BackgroundColor3 = color,
+			Rotation = 45,
+			ZIndex = 6,
+		})
+		local a = math.random() * math.pi * 2
+		local dist = 30 + math.random() * 50 * (1 + power * 0.15)
+		local to = from + Vector2.new(math.cos(a) * dist, math.sin(a) * dist * 0.7 - 20)
+		tween(p, 0.6 + math.random() * 0.4, {
+			Position = UDim2.fromOffset(to.X, to.Y),
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(2, 2),
+			Rotation = 45 + math.random(-180, 180),
+		})
+		task.delay(1.1, function()
+			p:Destroy()
+		end)
+	end
+
+	-- Точки вылета: кольцо медальона и края барабана (координаты внутри root).
+	local function emitPoint(): Vector2
+		local w = root.AbsoluteSize.X
+		local h = root.AbsoluteSize.Y
+		if math.random() < 0.55 then
+			local a = math.random() * math.pi * 2
+			return Vector2.new(w / 2 + math.cos(a) * 52, h - 84 + math.sin(a) * 52)
+		end
+		local side = if math.random() < 0.5 then -1 else 1
+		return Vector2.new(w / 2 + side * (REEL_W / 2 - 6), h - 174 + math.random(-28, 28))
+	end
+
+	-- Частицы вокруг персонажа во время крутки (видит только сам игрок).
+	local function characterSwirl(c1: Color3, c2: Color3, rate: number): (ParticleEmitter?, Part?)
+		local character = game:GetService("Players").LocalPlayer.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not hrp then
+			return nil, nil
+		end
+		local holder = Instance.new("Part")
+		holder.Anchored = true
+		holder.CanCollide = false
+		holder.CanQuery = false
+		holder.CanTouch = false
+		holder.Transparency = 1
+		holder.Size = Vector3.new(4, 0.2, 4)
+		holder.CFrame = hrp.CFrame * CFrame.new(0, -2.6, 0)
+		holder.Parent = workspace
+		local pe = Instance.new("ParticleEmitter")
+		pe.Color = ColorSequence.new(c1, c2)
+		pe.LightEmission = 0.9
+		pe.Size = NumberSequence.new(0.25, 0)
+		pe.Lifetime = NumberRange.new(0.8, 1.3)
+		pe.Speed = NumberRange.new(2, 4)
+		pe.SpreadAngle = Vector2.new(15, 15)
+		pe.Acceleration = Vector3.new(0, 2, 0)
+		pe.Rate = rate
+		pe.Shape = Enum.ParticleEmitterShape.Disc
+		pe.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+		pe.Parent = holder
+		return pe, holder
+	end
+
 	local spinning = false
 	local pending: any = nil
 	local readyAt = 0
@@ -402,6 +494,33 @@ function RollHud.new(parent: Instance, ctx: any)
 		tween(iconScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
 		local duration = if r.order >= 3 then 1.5 else 1.1
 		tween(strip, duration, { Position = UDim2.fromOffset(endX, 8) }, Enum.EasingStyle.Quint)
+		-- поток искр: цвет и плотность от удачи, счастливая крутка — золото
+		local luck = Luck.breakdown(profile).total * (if res.lucky then R.luckyMult else 1)
+		local c1, c2 = luckColors(luck)
+		if res.lucky then
+			c1, c2 = GOLD[1], GOLD[3]
+		end
+		local rate = math.clamp(16 + luck * 6, 16, 70)
+		local swirl, swirlHolder = characterSwirl(c1, c2, rate * 0.6)
+		local hintFrom = duration * 0.7
+		local started = os.clock()
+		local sparking = true
+		task.spawn(function()
+			while sparking do
+				local elapsed = os.clock() - started
+				-- ближе к концу искры подсказывают редкость результата
+				local hint = elapsed > hintFrom and r.order >= 3
+				local col = if hint
+					then (if math.random() < 0.5 then r.color else r.color2)
+					elseif math.random() < 0.5 then c1
+					else c2
+				spark(emitPoint(), col, if hint then r.order else 1)
+				if hint and swirl then
+					swirl.Color = ColorSequence.new(r.color, r.color2)
+				end
+				task.wait(1 / rate)
+			end
+		end)
 		-- щелчки метки, когда карточка проходит центр
 		local lastIndex = -1
 		local clicker = RunService.RenderStepped:Connect(function()
@@ -415,6 +534,19 @@ function RollHud.new(parent: Instance, ctx: any)
 		end)
 		task.wait(duration)
 		clicker:Disconnect()
+		sparking = false
+		if swirl and swirlHolder then
+			swirl.Enabled = false
+			-- вспышка в цвет выпавшего вида, сильнее у редких
+			local palette = Garden.aura(tree.id).palette
+			swirl.Color = ColorSequence.new(palette[1], palette[2])
+			swirl.Speed = NumberRange.new(4, 10)
+			swirl.SpreadAngle = Vector2.new(60, 60)
+			swirl:Emit(10 + r.order * 12)
+			task.delay(2, function()
+				swirlHolder:Destroy()
+			end)
+		end
 		-- точная доводка на центр карточки результата
 		local exact = center - ((RESULT_INDEX - 1) * STEP + CARD_W / 2)
 		tween(strip, 0.18, { Position = UDim2.fromOffset(exact, 8) }, Enum.EasingStyle.Sine)
@@ -428,6 +560,16 @@ function RollHud.new(parent: Instance, ctx: any)
 		landedScale.Parent = landed
 		landedScale.Scale = 1.12
 		tween(landedScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+		-- всплеск искр вокруг выпавшей карточки
+		local landedPalette = Garden.aura(tree.id).palette
+		local cardCenter = Vector2.new(root.AbsoluteSize.X / 2, root.AbsoluteSize.Y - 174)
+		for i = 1, 8 + r.order * 6 do
+			spark(
+				cardCenter + Vector2.new(math.random(-40, 40), math.random(-20, 20)),
+				landedPalette[(i % #landedPalette) + 1],
+				r.order
+			)
+		end
 		task.wait(0.45)
 		tween(reel, 0.18, { GroupTransparency = 1 })
 		task.wait(0.18)
