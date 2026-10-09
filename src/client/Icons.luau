@@ -3,6 +3,9 @@
 -- Рисуются в сетке 24×24 внутри контейнера и масштабируются вместе с ним.
 -- Каждая функция: (контейнер, основной цвет, дополнительный цвет?) -> Frame иконки.
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage.Shared.Config)
+
 local Icons = {}
 
 type Draw = {
@@ -187,6 +190,14 @@ function Icons.coin(parent: Instance, color: Color3, inner: Color3?): Frame
 	return d.root
 end
 
+-- Кристалл (магазин)
+function Icons.gem(parent: Instance, color: Color3, accent: Color3?): Frame
+	local d = canvas(parent)
+	d.rect(6, 5, 12, 12, color, { Rotation = 45, radius = 0.12 })
+	d.rect(4, 7.5, 16, 4, accent or color, { radius = 0.2 })
+	return d.root
+end
+
 -- Повтор (авто-крутка): кольцо с разрывом и стрелкой
 function Icons.repeat_(parent: Instance, color: Color3): Frame
 	local d = canvas(parent)
@@ -194,6 +205,44 @@ function Icons.repeat_(parent: Instance, color: Color3): Frame
 	-- наконечник стрелки
 	d.rect(15.5, 3, 5, 5, color, { Rotation = 45, radius = 0.15 })
 	return d.root
+end
+
+-- Иконка по ключу: загруженная картинка, если её ID указан в Config.IconAssets,
+-- иначе нарисованная из примитивов.
+local fallback: { [string]: (Instance, Color3, Color3?) -> Frame } = {
+	island = Icons.island,
+	odds = Icons.clover,
+	dungeon = Icons.sword,
+	profile = Icons.person,
+	menu = Icons.gear,
+	home = Icons.home,
+	hub = Icons.portal,
+	shop = Icons.gem,
+	coin = Icons.coin,
+	sprout = Icons.sprout,
+	auto = Icons.repeat_,
+}
+
+function Icons.make(key: string, parent: Instance, color: Color3, accent: Color3?): GuiObject
+	local id = (Config.IconAssets :: any)[key]
+	if type(id) == "string" and id ~= "" then
+		local img = Instance.new("ImageLabel")
+		img.Name = "Icon"
+		img.BackgroundTransparency = 1
+		img.Size = UDim2.fromScale(1, 1)
+		img.Image = id
+		img.ScaleType = Enum.ScaleType.Fit
+		img.Parent = parent
+		return img
+	end
+	local draw = fallback[key] or Icons.sprout
+	return draw(parent, color, accent)
+end
+
+-- Есть ли у ключа загруженная картинка (тогда её цвет не перекрашиваем).
+function Icons.hasImage(key: string): boolean
+	local id = (Config.IconAssets :: any)[key]
+	return type(id) == "string" and id ~= ""
 end
 
 return Icons
