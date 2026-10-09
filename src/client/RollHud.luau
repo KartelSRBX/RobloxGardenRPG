@@ -11,6 +11,7 @@ local Luck = require(ReplicatedStorage.Shared.Luck)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Net = require(script.Parent.Net)
 local State = require(script.Parent.State)
+local RollReveal = require(script.Parent.RollReveal)
 local UI = require(script.Parent.UI)
 
 local R = Config.Roll
@@ -91,14 +92,33 @@ function RollHud.new(parent: Instance, ctx: any)
 	local readyAt = 0
 	local hideId = 0
 
+	-- цветная полоска слева на карточке: градиент сияния вида
+	local cardStripe = UI.frame(card, {
+		Size = UDim2.new(0, 4, 1, -16),
+		Position = UDim2.fromOffset(0, 8),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+	})
+	UI.corner(cardStripe, 2)
+	local stripeGradient: UIGradient? = nil
+	local nameGradient: UIGradient? = nil
+
 	local function showResult(res: any)
 		local tree = Garden.tree(res.treeId)
 		if not tree then
 			return
 		end
 		local r = Garden.rarity(tree.rarity)
+		local palette = Garden.aura(tree.id).palette
 		cardName.Text = (if res.isNew then "NEW · " else "") .. tree.name
-		cardName.TextColor3 = r.color
+		cardName.TextColor3 = Color3.new(1, 1, 1)
+		if nameGradient then
+			nameGradient:Destroy()
+		end
+		nameGradient = UI.paletteGradient(cardName, palette)
+		if stripeGradient then
+			stripeGradient:Destroy()
+		end
+		stripeGradient = UI.paletteGradient(cardStripe, { r.color, r.color2 }, 90)
 		local info = `{r.name} · {UI.oneIn(Luck.oneIn(tree.id))}`
 		if res.lucky then
 			info ..= " · LUCKY ROLL"
@@ -109,11 +129,11 @@ function RollHud.new(parent: Instance, ctx: any)
 		cardInfo.Text = info
 		cardStroke.Color = r.color
 		card.Visible = true
-		cardScale.Scale = if r.order >= 4 then 1.15 else 1.05
+		cardScale.Scale = 1.06
 		TweenService:Create(cardScale, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Scale = 1 })
 			:Play()
-		if r.order >= 4 or res.isNew then
-			ctx.celebrate(r.color)
+		if RollReveal.wants(res) then
+			RollReveal.show(res)
 		end
 		hideId += 1
 		local id = hideId

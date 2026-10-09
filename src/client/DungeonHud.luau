@@ -20,7 +20,11 @@ local function lootText(loot: any): string
 	if not loot then
 		return ""
 	end
-	return `Coins {UI.formatNumber(loot.coins)} · Fertilizer {loot.fertilizer} · Sprouts {#loot.seeds}`
+	local drops = 0
+	for _, n in loot.drops or {} do
+		drops += n
+	end
+	return `Coins {UI.formatNumber(loot.coins)} · Fertilizer {loot.fertilizer} · Sprouts {#loot.seeds} · Loot {drops}`
 end
 
 local function seedIcons(seeds: { string }): string
@@ -227,7 +231,15 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 		if #kept.seeds > 0 then
 			text ..= `\n{seedIcons(kept.seeds)}`
 		end
-		if lost and (lost.coins > 0 or lost.fertilizer > 0 or #lost.seeds > 0) then
+		if
+			lost
+			and (
+				lost.coins > 0
+				or lost.fertilizer > 0
+				or #lost.seeds > 0
+				or next(lost.drops or {}) ~= nil
+			)
+		then
 			text ..= `\nLost: {lootText(lost)}`
 		end
 		cardText.Text = text

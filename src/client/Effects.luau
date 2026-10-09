@@ -4,6 +4,8 @@
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage.Shared.Config)
 local UI = require(script.Parent.UI)
 
 local Effects = {}
@@ -122,6 +124,11 @@ function Effects.handle(payload: any)
 		)
 	elseif payload.kind == "kill" and payload.pos then
 		Effects.poof(payload.pos, Color3.fromRGB(200, 255, 200))
+	elseif payload.kind == "drop" and payload.pos then
+		local item = Config.Items[payload.item]
+		if item then
+			Effects.floatText(payload.pos + Vector3.new(0, 5, 0), `+ {item.name}`, item.color, 40)
+		end
 	elseif payload.kind == "hurt" then
 		Effects.hurt()
 	end

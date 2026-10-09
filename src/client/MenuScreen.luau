@@ -154,6 +154,32 @@ function MenuScreen.new(parent: Instance, ctx: any)
 		hints.BackgroundColor3 = if on then UI.colors.green else UI.colors.disabled
 	end)
 
+	-- С какой редкости показывать большую анимацию выпадения (новые виды — всегда).
+	local reveal = box(76)
+	UI.label(reveal, "Roll animation from", {
+		Size = UDim2.new(0.6, 0, 1, 0),
+		TextXAlignment = Enum.TextXAlignment.Left,
+	})
+	local revealButton = UI.button(reveal, "", UI.colors.panelLight, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.fromScale(1, 0.5),
+		Size = UDim2.new(0.36, 0, 0, 52),
+	})
+	local function revealText()
+		local r = Config.Rarities[ctx.revealFrom()]
+		revealButton.Text = if r then string.upper(r.name) else "OFF"
+	end
+	revealText()
+	revealButton.Activated:Connect(function()
+		-- Rare -> Epic -> Legendary -> Mythic -> Rare
+		local nextOrder = ctx.revealFrom() + 1
+		if nextOrder > 6 then
+			nextOrder = 3
+		end
+		ctx.setRevealFrom(nextOrder)
+		revealText()
+	end)
+
 	local screen = {}
 
 	function screen.refresh()

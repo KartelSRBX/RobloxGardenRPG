@@ -7,6 +7,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local AuraFx = require(script.AuraFx)
 local DungeonHud = require(script.DungeonHud)
 local DungeonScreen = require(script.DungeonScreen)
 local Effects = require(script.Effects)
@@ -14,9 +15,14 @@ local Guide = require(script.Guide)
 local IslandScreen = require(script.IslandScreen)
 local MenuScreen = require(script.MenuScreen)
 local Net = require(script.Net)
+local ProfileScreen = require(script.ProfileScreen)
 local RollHud = require(script.RollHud)
+local RollReveal = require(script.RollReveal)
 local RollScreen = require(script.RollScreen)
 local State = require(script.State)
+local TextChatService = game:GetService("TextChatService")
+local Garden = require(ReplicatedStorage.Shared.Garden)
+local Luck = require(ReplicatedStorage.Shared.Luck)
 local UI = require(script.UI)
 local WorldPlots = require(script.WorldPlots)
 
@@ -145,6 +151,12 @@ local ctx = {
 	close = close,
 	celebrate = Effects.confetti,
 	hintsEnabled = Guide.enabled,
+	revealFrom = function(): number
+		return RollReveal.minOrder
+	end,
+	setRevealFrom = function(order: number)
+		RollReveal.minOrder = order
+	end,
 	setHints = Guide.setEnabled,
 	setWorldHud = function(v: boolean)
 		worldHud.Visible = v
@@ -159,9 +171,11 @@ screens.Island = island
 screens.Roll = RollScreen.new(panels, ctx)
 screens.Dungeon = DungeonScreen.new(panels, ctx)
 screens.Menu = MenuScreen.new(panels, ctx)
+screens.Profile = ProfileScreen.new(panels, ctx)
 
 -- Три главных экрана слева по центру: не мешают джойстику и прыжку
 local nav = UI.frame(worldHud, {
+	Name = "Nav",
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 12, 0.45, 0),
 	Size = UDim2.fromOffset(96, 3 * 66),
@@ -177,6 +191,7 @@ for i, item in
 do
 	local name, color = item[1], item[2]
 	local b = UI.button(nav, string.upper(name), UI.colors.bg, {
+		Name = name .. "Button",
 		Size = UDim2.fromOffset(96, 58),
 		LayoutOrder = i,
 		BackgroundTransparency = 0.15,
@@ -195,22 +210,26 @@ end
 
 -- Меню и быстрые кнопки справа сверху
 local right = UI.frame(worldHud, {
+	Name = "Right",
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -12, 0, 54),
-	Size = UDim2.fromOffset(84, 3 * 48),
+	Size = UDim2.fromOffset(84, 4 * 48),
 	BackgroundTransparency = 1,
 })
 UI.list(right, 6)
-for i, item in { { "MENU", "Menu" }, { "HOME", "GoHome" }, { "HUB", "GoHub" } } do
+for i, item in
+	{ { "PROFILE", "Profile" }, { "MENU", "Menu" }, { "HOME", "GoHome" }, { "HUB", "GoHub" } }
+do
 	local b = UI.button(right, item[1], UI.colors.bg, {
+		Name = item[2] .. "Button",
 		Size = UDim2.fromOffset(84, 42),
 		LayoutOrder = i,
 		BackgroundTransparency = 0.15,
 	})
 	UI.glass(b)
 	b.Activated:Connect(function()
-		if item[2] == "Menu" then
-			open("Menu")
+		if item[2] == "Menu" or item[2] == "Profile" then
+			open(item[2])
 			return
 		end
 		local res = Net.request(item[2])
@@ -220,7 +239,9 @@ for i, item in { { "MENU", "Menu" }, { "HOME", "GoHome" }, { "HUB", "GoHub" } } 
 	end)
 end
 
+RollReveal.init(gui)
 local rollHud = RollHud.new(worldHud, ctx)
+AuraFx.start()
 DungeonHud.new(gui, ctx)
 Effects.init(gui)
 
@@ -252,6 +273,26 @@ end
 Remotes.event("State").OnClientEvent:Connect(onState)
 Remotes.event("Dungeon").OnClientEvent:Connect(State.setDungeon)
 Remotes.event("Fx").OnClientEvent:Connect(Effects.handle)
+
+-- Объявления о редких находках: в чат и короткой плашкой.
+Remotes.event("Announce").OnClientEvent:Connect(function(data: any)
+	local tree = Garden.tree(data and data.treeId)
+	if not tree then
+		return
+	end
+	local r = Garden.rarity(tree.rarity)
+	local text = `{data.name} found {tree.name} ({r.name}, {UI.oneIn(Luck.oneIn(tree.id))})!`
+	pcall(function()
+		local channel = TextChatService:FindFirstChild("TextChannels")
+			and TextChatService.TextChannels:FindFirstChild("RBXSystem") :: TextChannel?
+		if channel then
+			channel:DisplaySystemMessage(`<font color="{UI.hex(r.color2)}">{text}</font>`)
+		end
+	end)
+	if data.name ~= player.DisplayName then
+		toast(text)
+	end
+end)
 
 task.spawn(function()
 	local profile, meta = Remotes.fn("GetState"):InvokeServer()

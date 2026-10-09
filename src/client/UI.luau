@@ -1,6 +1,7 @@
 --!strict
 -- Помощники UI в сдержанном стиле: тёмное стекло, тонкие обводки, плоские кнопки,
 -- шрифт Gotham. Крупные зоны нажатия остаются (mobile-first).
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local UI = {}
@@ -300,6 +301,48 @@ function UI.coinIcon(parent: Instance, size: number, props: { [string]: any }?):
 	return c
 end
 
+-- Градиент из палитры (2–3 цвета).
+function UI.paletteGradient(
+	parent: GuiObject | UIStroke,
+	palette: { Color3 },
+	rotation: number?
+): UIGradient
+	local g = Instance.new("UIGradient")
+	local keys = {}
+	for i, c in palette do
+		table.insert(keys, ColorSequenceKeypoint.new((i - 1) / math.max(1, #palette - 1), c))
+	end
+	g.Color = ColorSequence.new(keys)
+	g.Rotation = rotation or 0
+	g.Parent = parent
+	return g
+end
+
+-- Переливание градиента: смещение бегает по кругу. Все градиенты обновляются одним циклом.
+local shimmering: { [UIGradient]: number } = setmetatable({}, { __mode = "k" }) :: any
+local shimmerClock = 0
+RunService.RenderStepped:Connect(function(dt)
+	shimmerClock += dt
+	for g, speed in shimmering do
+		if g.Parent then
+			g.Offset = Vector2.new(math.sin(shimmerClock * speed) * 0.5, 0)
+		end
+	end
+end)
+function UI.shimmer(g: UIGradient, speed: number?)
+	shimmering[g] = speed or 1.5
+end
+
+-- Цвет в hex для rich text.
+function UI.hex(c: Color3): string
+	return string.format(
+		"#%02X%02X%02X",
+		math.floor(c.R * 255),
+		math.floor(c.G * 255),
+		math.floor(c.B * 255)
+	)
+end
+
 function UI.formatTime(seconds: number): string
 	seconds = math.max(0, math.ceil(seconds))
 	if seconds >= 3600 then
@@ -322,8 +365,30 @@ function UI.formatNumber(n: number): string
 end
 
 -- «1 / 2.5M»
+-- Короткая запись больших чисел: 250K, 2.5M, 100M.
+function UI.short(n: number): string
+	local function trim(x: number, suffix: string): string
+		local str = string.format("%.1f", x):gsub("%.0$", "")
+		return str .. suffix
+	end
+	if n >= 1e9 then
+		return trim(n / 1e9, "B")
+	elseif n >= 1e6 then
+		return trim(n / 1e6, "M")
+	elseif n >= 1e4 then
+		return trim(n / 1e3, "K")
+	end
+	return UI.formatNumber(n)
+end
+
+-- «1 in 250K»
 function UI.oneIn(n: number): string
-	return "1 in " .. UI.formatNumber(math.floor(n + 0.5))
+	-- до двух значащих цифр: 5 001 -> 5 000, 251 -> 250
+	if n >= 100 then
+		local p = 10 ^ (math.floor(math.log10(n)) - 1)
+		n = math.floor(n / p + 0.5) * p
+	end
+	return "1 in " .. UI.short(math.floor(n + 0.5))
 end
 
 function UI.percent(p: number): string

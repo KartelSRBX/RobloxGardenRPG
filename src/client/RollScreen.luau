@@ -44,6 +44,7 @@ function RollScreen.new(parent: Instance, ctx: any)
 	end
 	for i, name in { "Odds", "Upgrades", "Index" } do
 		local b = UI.button(tabsRow, string.upper(name), UI.colors.panelLight, {
+			Name = name .. "Tab",
 			Size = UDim2.new(0.32, -6, 1, 0),
 			LayoutOrder = i,
 		})
@@ -76,7 +77,9 @@ function RollScreen.new(parent: Instance, ctx: any)
 		local r = Garden.rarity(t.rarity)
 		local row = UI.frame(pages.Odds, { Size = UDim2.new(1, 0, 0, 38), LayoutOrder = i })
 		UI.corner(row, 6)
-		UI.frame(row, { Size = UDim2.new(0, 4, 1, 0), BackgroundColor3 = r.color })
+		local stripe =
+			UI.frame(row, { Size = UDim2.new(0, 4, 1, 0), BackgroundColor3 = Color3.new(1, 1, 1) })
+		UI.paletteGradient(stripe, { r.color, r.color2 }, 90)
 		local name = UI.label(row, "", {
 			Size = UDim2.new(0.46, -14, 0, 18),
 			Position = UDim2.fromOffset(14, 4),
@@ -273,7 +276,14 @@ function RollScreen.new(parent: Instance, ctx: any)
 				count += 1
 				cell.name.Text = t.name
 				cell.name.TextColor3 = UI.colors.text
-				cell.frame.BackgroundColor3 = UI.colors.panelLight
+				cell.frame.BackgroundColor3 = Color3.new(1, 1, 1)
+				if not cell.frame:FindFirstChild("Glow") then
+					local dark = {}
+					for k, c in Garden.aura(id).palette do
+						dark[k] = c:Lerp(Color3.new(0, 0, 0), 0.55)
+					end
+					UI.paletteGradient(cell.frame, dark, 35).Name = "Glow"
+				end
 			else
 				cell.name.Text = "???"
 				cell.name.TextColor3 = UI.colors.muted

@@ -152,16 +152,8 @@ function WorldPlots.start(ctx: any)
 		end
 	end)
 
-	-- Машина семян и портал на хабе
+	-- Портал в подземелье на хабе
 	local map = workspace:WaitForChild("Map")
-	local spinPrompt =
-		map:WaitForChild("SeedMachine"):FindFirstChild("SpinPrompt", true) :: ProximityPrompt?
-	if spinPrompt then
-		spinPrompt.ActionText = "Odds & upgrades"
-		spinPrompt.Triggered:Connect(function()
-			ctx.open("Roll")
-		end)
-	end
 	local dungeonPrompt =
 		map:WaitForChild("DungeonPortal"):FindFirstChild("DungeonPrompt", true) :: ProximityPrompt?
 	if dungeonPrompt then
