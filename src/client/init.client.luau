@@ -16,10 +16,12 @@ local Icons = require(script.Icons)
 local IslandScreen = require(script.IslandScreen)
 local MenuScreen = require(script.MenuScreen)
 local Net = require(script.Net)
+local OrbitFx = require(script.OrbitFx)
 local ProfileScreen = require(script.ProfileScreen)
 local RollHud = require(script.RollHud)
 local RollReveal = require(script.RollReveal)
 local RollScreen = require(script.RollScreen)
+local ShopScreen = require(script.ShopScreen)
 local State = require(script.State)
 local TextChatService = game:GetService("TextChatService")
 local Garden = require(ReplicatedStorage.Shared.Garden)
@@ -57,7 +59,7 @@ local coinIconHolder = UI.frame(stats, {
 	Position = UDim2.fromOffset(14, 10),
 	BackgroundTransparency = 1,
 })
-Icons.coin(coinIconHolder, UI.colors.gold, UI.colors.goldDark)
+Icons.make("coin", coinIconHolder, UI.colors.gold, UI.colors.goldDark)
 local coinsLabel = UI.label(stats, "0", {
 	Size = UDim2.new(0.5, -46, 0, 20),
 	Position = UDim2.fromOffset(42, 11),
@@ -76,7 +78,7 @@ local sproutIconHolder = UI.frame(stats, {
 	Position = UDim2.new(0.5, 14, 0, 10),
 	BackgroundTransparency = 1,
 })
-Icons.sprout(sproutIconHolder, UI.colors.green, Color3.fromRGB(120, 200, 110))
+Icons.make("sprout", sproutIconHolder, UI.colors.green, Color3.fromRGB(120, 200, 110))
 local seedsLabel = UI.label(stats, "0", {
 	Size = UDim2.new(0.5, -46, 0, 20),
 	Position = UDim2.new(0.5, 42, 0, 11),
@@ -89,7 +91,7 @@ local function iconButton(
 	container: Instance,
 	name: string,
 	label: string,
-	draw: (Instance, Color3, Color3?) -> Frame,
+	iconKey: string,
 	accent: Color3,
 	size: number,
 	order: number
@@ -111,7 +113,7 @@ local function iconButton(
 		Size = UDim2.fromOffset(size * 0.46, size * 0.46),
 		BackgroundTransparency = 1,
 	})
-	draw(holder, accent, accent:Lerp(Color3.new(1, 1, 1), 0.35))
+	Icons.make(iconKey, holder, accent, accent:Lerp(Color3.new(1, 1, 1), 0.35))
 	UI.label(b, label, {
 		AnchorPoint = Vector2.new(0.5, 1),
 		Position = UDim2.new(0.5, 0, 1, -size * 0.1),
@@ -251,6 +253,7 @@ screens.Roll = RollScreen.new(panels, ctx)
 screens.Dungeon = DungeonScreen.new(panels, ctx)
 screens.Menu = MenuScreen.new(panels, ctx)
 screens.Profile = ProfileScreen.new(panels, ctx)
+screens.Shop = ShopScreen.new(panels, ctx)
 
 -- Три главных экрана слева по центру: не мешают джойстику и прыжку
 local nav = UI.frame(worldHud, {
@@ -263,13 +266,13 @@ local nav = UI.frame(worldHud, {
 UI.list(nav, 8)
 for i, item in
 	{
-		{ "Island", "ISLAND", Icons.island, Color3.fromRGB(120, 200, 130) },
-		{ "Roll", "ODDS", Icons.clover, Color3.fromRGB(236, 196, 100) },
-		{ "Dungeon", "DUNGEON", Icons.sword, Color3.fromRGB(170, 140, 240) },
+		{ "Island", "ISLAND", "island", Color3.fromRGB(120, 200, 130) },
+		{ "Roll", "ODDS", "odds", Color3.fromRGB(236, 196, 100) },
+		{ "Dungeon", "DUNGEON", "dungeon", Color3.fromRGB(170, 140, 240) },
 	}
 do
 	local name = item[1] :: string
-	local b = iconButton(nav, name, item[2] :: string, item[3] :: any, item[4] :: Color3, 72, i)
+	local b = iconButton(nav, name, item[2] :: string, item[3] :: string, item[4] :: Color3, 72, i)
 	b.Activated:Connect(function()
 		open(name)
 	end)
@@ -281,7 +284,7 @@ local right = UI.frame(worldHud, {
 	Name = "Right",
 	AnchorPoint = Vector2.new(1, 0),
 	Position = UDim2.new(1, -12, 0, 54),
-	Size = UDim2.fromOffset(2 * 64 + 6, 2 * 64 + 6),
+	Size = UDim2.fromOffset(2 * 64 + 6, 3 * 64 + 12),
 	BackgroundTransparency = 1,
 })
 local rightGrid = Instance.new("UIGridLayout")
@@ -291,16 +294,18 @@ rightGrid.SortOrder = Enum.SortOrder.LayoutOrder
 rightGrid.Parent = right
 for i, item in
 	{
-		{ "Profile", "PROFILE", Icons.person, Color3.fromRGB(130, 170, 240) },
-		{ "Menu", "MENU", Icons.gear, Color3.fromRGB(190, 196, 210) },
-		{ "GoHome", "HOME", Icons.home, Color3.fromRGB(120, 200, 130) },
-		{ "GoHub", "HUB", Icons.portal, Color3.fromRGB(170, 140, 240) },
+		{ "Shop", "SHOP", "shop", Color3.fromRGB(120, 210, 255) },
+		{ "Profile", "PROFILE", "profile", Color3.fromRGB(130, 170, 240) },
+		{ "Menu", "MENU", "menu", Color3.fromRGB(190, 196, 210) },
+		{ "GoHome", "HOME", "home", Color3.fromRGB(120, 200, 130) },
+		{ "GoHub", "HUB", "hub", Color3.fromRGB(170, 140, 240) },
 	}
 do
 	local action = item[1] :: string
-	local b = iconButton(right, action, item[2] :: string, item[3] :: any, item[4] :: Color3, 64, i)
+	local b =
+		iconButton(right, action, item[2] :: string, item[3] :: string, item[4] :: Color3, 64, i)
 	b.Activated:Connect(function()
-		if action == "Menu" or action == "Profile" then
+		if action == "Menu" or action == "Profile" or action == "Shop" then
 			open(action)
 			return
 		end
@@ -309,12 +314,17 @@ do
 			toast(Net.errorText(res.error))
 		end
 	end)
-	navButtons[action] = if action == "Menu" or action == "Profile" then b else nil
+	navButtons[action] = if action == "Menu"
+			or action == "Profile"
+			or action == "Shop"
+		then b
+		else nil
 end
 
 RollReveal.init(gui)
 local rollHud = RollHud.new(worldHud, ctx)
 AuraFx.start()
+OrbitFx.start()
 DungeonHud.new(gui, ctx)
 Effects.init(gui)
 

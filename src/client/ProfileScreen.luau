@@ -23,6 +23,11 @@ local byRarity = table.clone(Config.Trees)
 table.sort(byRarity, function(a, b)
 	return a.n > b.n
 end)
+-- в ауры попадают и эксклюзивные деревья (видны, если открыты)
+local auraList = table.clone(byRarity)
+for i, t in Config.PremiumTrees do
+	table.insert(auraList, i, t :: any)
+end
 
 local function darken(c: Color3, k: number): Color3
 	return c:Lerp(Color3.new(0, 0, 0), k)
@@ -106,7 +111,10 @@ function ProfileScreen.new(parent: Instance, ctx: any)
 			Position = UDim2.fromOffset(8, 8),
 			TextXAlignment = Enum.TextXAlignment.Left,
 		})
-		local sub = UI.label(card, `{r.name} · {UI.oneIn(Luck.oneIn(treeId))}`, {
+		local subText = if Garden.isPremium(treeId)
+			then "Exclusive · Shop"
+			else `{r.name} · {UI.oneIn(Luck.oneIn(treeId))}`
+		local sub = UI.label(card, subText, {
 			Size = UDim2.new(1, -16, 0, 13),
 			Position = UDim2.fromOffset(8, 28),
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -280,7 +288,7 @@ function ProfileScreen.new(parent: Instance, ctx: any)
 	local auraGrid = grid(aurasPage, 86, 3)
 	auraGrid.LayoutOrder = 1
 	local auraButtons: { [string]: TextButton } = {}
-	for i, t in byRarity do
+	for i, t in auraList do
 		local card = auraCard(auraGrid, t.id, i)
 		local b = UI.button(card, "", UI.colors.panelLight, {
 			AnchorPoint = Vector2.new(0.5, 1),

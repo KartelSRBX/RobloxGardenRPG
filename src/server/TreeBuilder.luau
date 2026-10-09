@@ -4,6 +4,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Garden = require(ReplicatedStorage.Shared.Garden)
+local PremiumTreeBuilder = require(script.Parent.PremiumTreeBuilder)
 local Voxel = require(script.Parent.Voxel)
 
 local TreeBuilder = {}
@@ -96,6 +97,9 @@ function TreeBuilder.build(
 	mutation: string?,
 	base: CFrame
 ): Model
+	if Garden.isPremium(treeId) then
+		return PremiumTreeBuilder.build(treeId, level, ready, base)
+	end
 	local tree = Garden.tree(treeId) :: Garden.Tree
 	local rarity = Garden.rarity(tree.rarity)
 	local stage = Garden.stage(level)

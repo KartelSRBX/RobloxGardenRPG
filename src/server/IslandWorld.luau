@@ -22,6 +22,7 @@ local HEIGHT = 40 -- высота поверхности островов и х�
 local slotOwner: { [number]: Player } = {}
 local playerSlot: { [Player]: number } = {}
 local builtTier: { [Player]: number } = {}
+local builtPlots: { [Player]: number } = {}
 local treeKeys: { [Instance]: string } = setmetatable({}, { __mode = "k" }) :: any
 
 local SOIL = Color3.fromRGB(92, 66, 48)
@@ -182,6 +183,7 @@ local function buildIsland(player: Player, profile: Profile)
 	end
 	island.Parent = folder()
 	builtTier[player] = profile.islandTier
+	builtPlots[player] = #profile.plots
 end
 
 function IslandWorld.assign(player: Player): boolean
@@ -211,6 +213,7 @@ function IslandWorld.release(player: Player)
 	slotOwner[slot] = nil
 	playerSlot[player] = nil
 	builtTier[player] = nil
+	builtPlots[player] = nil
 end
 
 -- Перерисовывает остров и деревья. Остров пересобирается только при смене уровня.
@@ -218,7 +221,12 @@ function IslandWorld.render(player: Player, profile: Profile)
 	if not playerSlot[player] then
 		return
 	end
-	if builtTier[player] ~= profile.islandTier or not islandModel(player) then
+	-- пересобрать при новом уровне или другом числе грядок (пропуск Bigger Island)
+	if
+		builtTier[player] ~= profile.islandTier
+		or builtPlots[player] ~= #profile.plots
+		or not islandModel(player)
+	then
 		buildIsland(player, profile)
 	end
 	local island = islandModel(player)

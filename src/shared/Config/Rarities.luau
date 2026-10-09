@@ -82,6 +82,16 @@ local Rarities: { Rarity } = {
 		reveal = "epic",
 		announce = true,
 	},
+	-- Эксклюзивные деревья за Robux: в крутилке не выпадают.
+	{
+		id = "exclusive",
+		name = "Exclusive",
+		order = 8,
+		color = rgb(255, 120, 240),
+		color2 = rgb(120, 230, 255),
+		reveal = "epic",
+		announce = false,
+	},
 }
 
 return Rarities

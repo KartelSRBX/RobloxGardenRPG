@@ -19,6 +19,20 @@ local byId: { [string]: Tree } = {}
 for _, t in Config.Trees do
 	byId[t.id] = t
 end
+-- эксклюзивные деревья: те же поля плюс income/grow/perk
+for _, t in Config.PremiumTrees do
+	byId[t.id] = t :: any
+end
+
+function Garden.isPremium(id: string?): boolean
+	local t = id and byId[id]
+	return t ~= nil and (t :: any).perk ~= nil
+end
+
+function Garden.perk(id: string?): string?
+	local t = id and byId[id]
+	return if t then (t :: any).perk else nil
+end
 
 function Garden.tree(id: string?): Tree?
 	return if id then byId[id] else nil
@@ -61,6 +75,10 @@ end
 
 -- Монет в минуту на 1 уровне.
 function Garden.baseIncome(tree: Tree): number
+	local fixed = (tree :: any).income
+	if fixed then
+		return fixed
+	end
 	local e = Config.Economy
 	return e.incomeBase * tree.n ^ e.incomeExp
 end
@@ -74,6 +92,10 @@ function Garden.incomePerMinute(tree: Tree, level: number): number
 end
 
 function Garden.growTime(tree: Tree, _level: number?): number
+	local fixed = (tree :: any).grow
+	if fixed then
+		return fixed
+	end
 	local e = Config.Economy
 	return math.max(5, math.floor(e.growBase * tree.n ^ e.growExp))
 end
@@ -123,6 +145,33 @@ function Garden.buffs(plots: { Plot }): (number, number)
 	local b = Config.Dungeon.buffs
 	local root = math.sqrt(levels)
 	return math.floor(root * b.hpPerSqrtLevel), root * b.damagePerSqrtLevel
+end
+
+-- Множитель дохода грядки от соседей с перком neighbors (Aurora Crystal Tree).
+-- Соседи по сетке острова: слева, справа, сверху, снизу.
+function Garden.neighborMult(plots: { Plot }, slot: number): number
+	local cols = Config.PlotLayout.columns
+	local row, col = (slot - 1) // cols, (slot - 1) % cols
+	local count = 0
+	for _, d in { { 0, -1 }, { 0, 1 }, { -1, 0 }, { 1, 0 } } do
+		local r, c = row + d[1], col + d[2]
+		if c >= 0 and c < cols and r >= 0 then
+			local other = plots[r * cols + c + 1]
+			if other and Garden.perk(other.plantId) == "neighbors" then
+				count += 1
+			end
+		end
+	end
+	return 1 + 0.3 * count
+end
+
+function Garden.premiumFor(passKey: string): string?
+	for _, p in Config.GamePasses do
+		if p.key == passKey then
+			return (p :: any).treeId
+		end
+	end
+	return nil
 end
 
 -- Остров

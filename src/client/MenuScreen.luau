@@ -1,14 +1,10 @@
 --!strict
--- Панель «Menu»: как играть, магазин (только предсказуемые покупки), статистика, настройки.
-local MarketplaceService = game:GetService("MarketplaceService")
-local Players = game:GetService("Players")
+-- Панель «Menu»: как играть, вход в магазин, статистика, настройки.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local State = require(script.Parent.State)
 local UI = require(script.Parent.UI)
-
-local player = Players.LocalPlayer
 
 local MenuScreen = {}
 
@@ -59,60 +55,17 @@ function MenuScreen.new(parent: Instance, ctx: any)
 		})
 	end
 
-	-- Магазин: цена видна сразу, рандома за Robux нет
+	-- Магазин переехал в отдельную панель (кнопка SHOP)
 	heading("Shop")
+	order += 1
+	local openShop = UI.button(scroll, "OPEN SHOP", UI.colors.blue, {
+		Size = UDim2.new(1, -8, 0, 48),
+		LayoutOrder = order,
+	})
+	openShop.Activated:Connect(function()
+		ctx.open("Shop")
+	end)
 	local shopRows: { () -> () } = {}
-	for _, pass in Config.GamePasses do
-		local row = box(84)
-		UI.label(row, pass.name, {
-			Size = UDim2.new(0.62, 0, 0, 30),
-			TextXAlignment = Enum.TextXAlignment.Left,
-		})
-		UI.label(row, pass.desc, {
-			Size = UDim2.new(0.62, 0, 0, 24),
-			Position = UDim2.fromOffset(0, 34),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextColor3 = UI.colors.muted,
-		})
-		local buy = UI.button(row, "Soon", UI.colors.disabled, {
-			AnchorPoint = Vector2.new(1, 0.5),
-			Position = UDim2.fromScale(1, 0.5),
-			Size = UDim2.new(0.36, 0, 0, 56),
-		})
-		local price: number? = nil
-		buy.Activated:Connect(function()
-			if pass.id ~= 0 and not State.passes[pass.key] then
-				MarketplaceService:PromptGamePassPurchase(player, pass.id)
-			end
-		end)
-		local function refreshRow()
-			if State.passes[pass.key] then
-				buy.Text = "Owned "
-				buy.BackgroundColor3 = UI.colors.greenDark
-			elseif pass.id == 0 then
-				buy.Text = "Soon"
-				buy.BackgroundColor3 = UI.colors.disabled
-			else
-				buy.Text = if price then `R$ {price}` else "..."
-				buy.BackgroundColor3 = UI.colors.green
-			end
-		end
-		table.insert(shopRows, refreshRow)
-		if pass.id ~= 0 then
-			task.spawn(function()
-				local ok, info = pcall(
-					MarketplaceService.GetProductInfo,
-					MarketplaceService,
-					pass.id,
-					Enum.InfoType.GamePass
-				)
-				if ok and info and info.PriceInRobux then
-					price = info.PriceInRobux
-					refreshRow()
-				end
-			end)
-		end
-	end
 
 	-- Статистика
 	heading("Stats")

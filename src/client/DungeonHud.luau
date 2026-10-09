@@ -112,7 +112,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 		Size = UDim2.fromScale(0.55, 0.55),
 		BackgroundTransparency = 1,
 	})
-	Icons.sword(swordHolder, Color3.fromRGB(236, 238, 244), UI.colors.red)
+	Icons.make("dungeon", swordHolder, Color3.fromRGB(236, 238, 244), UI.colors.red)
 	local attackScale = Instance.new("UIScale")
 	attackScale.Parent = attack
 	UI.label(attack, "ATTACK", {

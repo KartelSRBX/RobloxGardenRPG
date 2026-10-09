@@ -60,6 +60,7 @@ function InventoryService.equipAura(profile: Profile, id: any): string?
 	if type(id) ~= "string" or not Garden.tree(id) then
 		return "bad_args"
 	end
+	-- сияние эксклюзивного дерева — у тех, у кого оно посажено или куплено (found)
 	if not profile.found[id] then
 		return "not_found"
 	end

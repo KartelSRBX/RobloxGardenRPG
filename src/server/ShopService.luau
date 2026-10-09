@@ -3,6 +3,7 @@
 -- Покупку показывает клиент, сервер лишь проверяет владение.
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
@@ -48,6 +49,42 @@ end
 
 function ShopService.ownedList(player: Player): { [string]: boolean }
 	return owned[player] or {}
+end
+
+-- Купленные эксклюзивные деревья: { [treeId] = true }.
+function ShopService.ownedTrees(player: Player): { [string]: boolean }
+	local out: { [string]: boolean } = {}
+	for _, pass in Config.GamePasses do
+		local treeId = (pass :: any).treeId
+		if treeId and ShopService.owns(player, pass.key) then
+			out[treeId] = true
+		end
+	end
+	return out
+end
+
+function ShopService.bonusPlots(player: Player): number
+	return if ShopService.owns(player, "plots2") then Config.BonusPlots else 0
+end
+
+-- Только в Studio: выдать себе пропуск без покупки, чтобы проверить его в игре.
+-- В живой игре не работает (RunService:IsStudio() = false).
+function ShopService.testGrant(player: Player, key: any): string?
+	if not RunService:IsStudio() then
+		return "studio_only"
+	end
+	local found = false
+	for _, pass in Config.GamePasses do
+		if pass.key == key then
+			found = true
+		end
+	end
+	if not found or not owned[player] then
+		return "bad_args"
+	end
+	owned[player][key] = true
+	changed:Fire(player)
+	return nil
 end
 
 function ShopService.coinMult(player: Player): number

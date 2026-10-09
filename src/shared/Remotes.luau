@@ -28,6 +28,7 @@ local Remotes = {
 		"SellItem",
 		"SellSeed",
 		"EquipAura",
+		"TestGrant",
 	},
 	-- RemoteEvent: State — снимок профиля, Dungeon — состояние забега,
 	-- Fx — эффекты (монеты над грядкой, удары), Rolled — результат авто-крутки

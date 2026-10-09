@@ -129,11 +129,11 @@ handle("EquipAura", function(player, profile, id)
 end)
 
 -- Сад
-handle("Plant", function(_, profile, slot, treeId)
+handle("Plant", function(player, profile, slot, treeId)
 	if not validSlot(profile, slot) or type(treeId) ~= "string" or #treeId > 32 then
 		return { ok = false, error = "bad_args" }
 	end
-	local err = GardenService.plant(profile, slot, treeId)
+	local err = GardenService.plant(profile, slot, treeId, ShopService.ownedTrees(player))
 	return { ok = err == nil, error = err }
 end)
 
@@ -158,7 +158,16 @@ end)
 handle("Upgrade", slotAction(GardenService.upgrade))
 handle("Remove", slotAction(GardenService.remove))
 handle("Fertilize", slotAction(GardenService.fertilize))
-handle("Expand", simple(GardenService.expand))
+handle("Expand", function(player, profile)
+	local err = GardenService.expand(profile, ShopService.bonusPlots(player))
+	return { ok = err == nil, error = err }
+end)
+
+-- Только в Studio: выдать пропуск для проверки (см. ShopService.testGrant).
+handle("TestGrant", function(player, _, key)
+	local err = ShopService.testGrant(player, key)
+	return { ok = err == nil, error = err }
+end)
 
 -- Перемещение
 handle("GoHome", function(player)
@@ -252,7 +261,14 @@ end
 Players.PlayerRemoving:Connect(RollService.forget)
 
 DataService.loaded:Connect(onLoaded)
-ShopService.changed:Connect(pushState)
+-- пропуски загрузились или куплены: добавить бонусные грядки и обновить клиента
+ShopService.changed:Connect(function(player)
+	local profile = DataService.get(player)
+	if profile then
+		GardenService.ensurePlots(profile, ShopService.bonusPlots(player))
+	end
+	pushState(player)
+end)
 ShopService.start()
 DungeonService.start()
 DataService.start()
@@ -269,9 +285,11 @@ task.spawn(function()
 			end
 			profile.playSeconds += 1
 			local changed = GardenService.tick(profile, now)
-			if ShopService.owns(player, "autoHarvest") then
+			local autoAll = ShopService.owns(player, "autoHarvest")
+			do
 				for slot, plot in profile.plots do
-					if plot.mutationRolled then
+					-- авто-сбор: пропуск Auto Harvest или перк дерева Starforge Nebula
+					if plot.mutationRolled and (autoAll or Garden.perk(plot.plantId) == "auto") then
 						harvest(player, profile, slot)
 						changed = true
 					end

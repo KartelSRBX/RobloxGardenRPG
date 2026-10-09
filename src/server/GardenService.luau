@@ -35,7 +35,10 @@ function GardenService.tick(profile: Profile, now: number): boolean
 	for _, plot in profile.plots do
 		local readyAt = Garden.readyAt(plot)
 		if readyAt and now >= readyAt and not plot.mutationRolled then
-			plot.mutation = rollMutation()
+			-- перк Dragon's Hoard: урожай всегда золотой (без броска)
+			plot.mutation = if Garden.perk(plot.plantId) == "golden"
+				then "golden"
+				else rollMutation()
 			plot.mutationRolled = true
 			changed = true
 		end
@@ -43,7 +46,13 @@ function GardenService.tick(profile: Profile, now: number): boolean
 	return changed
 end
 
-function GardenService.plant(profile: Profile, slot: number, plantId: string): string?
+-- ownedPremium — эксклюзивные деревья, купленные игроком: { [treeId] = true }.
+function GardenService.plant(
+	profile: Profile,
+	slot: number,
+	plantId: string,
+	ownedPremium: { [string]: boolean }?
+): string?
 	local plot = profile.plots[slot]
 	if not plot then
 		return "bad_slot"
@@ -54,11 +63,24 @@ function GardenService.plant(profile: Profile, slot: number, plantId: string): s
 	if not Garden.plant(plantId) then
 		return "bad_plant"
 	end
-	local count = profile.seeds[plantId] or 0
-	if count <= 0 then
-		return "no_seed"
+	if Garden.isPremium(plantId) then
+		-- эксклюзив: семя не тратится, но на острове только одно такое дерево
+		if not (ownedPremium and ownedPremium[plantId]) then
+			return "not_owned"
+		end
+		for _, other in profile.plots do
+			if other.plantId == plantId then
+				return "already_planted"
+			end
+		end
+		profile.found[plantId] = true
+	else
+		local count = profile.seeds[plantId] or 0
+		if count <= 0 then
+			return "no_seed"
+		end
+		profile.seeds[plantId] = if count > 1 then count - 1 else nil
 	end
-	profile.seeds[plantId] = if count > 1 then count - 1 else nil
 	plot.plantId = plantId
 	plot.level = 1
 	plot.plantedAt = os.time()
@@ -83,8 +105,15 @@ function GardenService.harvest(profile: Profile, slot: number, coinMult: number)
 		return nil, "not_ready"
 	end
 	GardenService.tick(profile, now)
-	local value = Garden.harvestValue(plant, plot.level, plot.mutation) * coinMult
+	local value = math.floor(
+		Garden.harvestValue(plant, plot.level, plot.mutation)
+			* coinMult
+			* Garden.neighborMult(profile.plots, slot)
+	)
 	profile.coins += value
+	if Garden.perk(plot.plantId) == "fertilizer" then
+		profile.items.fertilizer = (profile.items.fertilizer or 0) + 1
+	end
 	profile.stats.harvests = (profile.stats.harvests or 0) + 1
 	plot.plantedAt = now
 	plot.mutation = nil
@@ -141,7 +170,14 @@ function GardenService.seedCount(profile: Profile): number
 end
 
 -- Расширение острова: нужно время в игре, монеты и ростки (тратятся самые частые).
-function GardenService.expand(profile: Profile): string?
+-- Грядок должно быть: уровень острова + бонус пропуска Bigger Island.
+function GardenService.ensurePlots(profile: Profile, bonus: number)
+	for _ = #profile.plots + 1, Garden.islandPlots(profile.islandTier) + bonus do
+		table.insert(profile.plots, emptyPlot())
+	end
+end
+
+function GardenService.expand(profile: Profile, bonus: number?): string?
 	local nextTier = Garden.nextIsland(profile.islandTier)
 	if not nextTier then
 		return "max_island"
@@ -176,9 +212,7 @@ function GardenService.expand(profile: Profile): string?
 		end
 	end
 	profile.islandTier += 1
-	for _ = #profile.plots + 1, nextTier.plots do
-		table.insert(profile.plots, emptyPlot())
-	end
+	GardenService.ensurePlots(profile, bonus or 0)
 	return nil
 end
 

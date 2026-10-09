@@ -3,6 +3,7 @@
 -- для посадки и расширение острова (время в игре, монеты, ростки).
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Config = require(ReplicatedStorage.Shared.Config)
 local Garden = require(ReplicatedStorage.Shared.Garden)
 local Net = require(script.Parent.Net)
 local State = require(script.Parent.State)
@@ -144,20 +145,70 @@ function IslandScreen.new(parent: Instance, ctx: any)
 				c:Destroy()
 			end
 		end
+		-- купленные эксклюзивы, которые ещё не посажены
+		local planted: { [string]: boolean } = {}
+		for _, plot in profile.plots do
+			if plot.plantId then
+				planted[plot.plantId] = true
+			end
+		end
+		local premium = {}
+		for _, pass in Config.GamePasses do
+			local treeId = (pass :: any).treeId
+			if treeId and State.passes[pass.key] and not planted[treeId] then
+				table.insert(premium, treeId)
+			end
+		end
+		for i, id in premium do
+			local t = Garden.tree(id) :: any
+			local palette = Garden.aura(id).palette
+			local b = UI.button(pickerList, "", Color3.new(1, 1, 1), {
+				Size = UDim2.new(1, -8, 0, 58),
+				LayoutOrder = i,
+				ZIndex = 22,
+			})
+			UI.paletteGradient(b, {
+				palette[1]:Lerp(Color3.new(0, 0, 0), 0.55),
+				palette[2]:Lerp(Color3.new(0, 0, 0), 0.65),
+			}, 20)
+			UI.shimmer(UI.paletteGradient(UI.stroke(b, Color3.new(1, 1, 1), 2), palette, 45), 1.2)
+			UI.label(b, `{t.name} · EXCLUSIVE`, {
+				Size = UDim2.new(0.65, 0, 1, 0),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				ZIndex = 23,
+			})
+			UI.label(b, `{UI.formatNumber(Garden.baseIncome(t))}/min`, {
+				AnchorPoint = Vector2.new(1, 0),
+				Position = UDim2.fromScale(1, 0),
+				Size = UDim2.new(0.35, 0, 1, 0),
+				TextXAlignment = Enum.TextXAlignment.Right,
+				TextColor3 = palette[1],
+				ZIndex = 23,
+			})
+			b.Activated:Connect(function()
+				picker.Visible = false
+				local res = Net.request("Plant", slot, id)
+				if not res.ok then
+					ctx.toast(Net.errorText(res.error))
+				end
+			end)
+		end
+
 		local ids = {}
 		for id, count in profile.seeds do
 			if count > 0 and Garden.tree(id) then
 				table.insert(ids, id)
 			end
 		end
-		if #ids == 0 then
+		if #ids == 0 and #premium == 0 then
 			ctx.toast("No sprouts yet. Roll for one!")
 			return
 		end
 		table.sort(ids, function(a, b)
 			return (Garden.tree(a) :: Garden.Tree).n > (Garden.tree(b) :: Garden.Tree).n
 		end)
-		for i, id in ids do
+		for k, id in ids do
+			local i = #premium + k
 			local t = Garden.tree(id) :: Garden.Tree
 			local r = Garden.rarity(t.rarity)
 			local b = UI.button(pickerList, "", UI.colors.panel, {

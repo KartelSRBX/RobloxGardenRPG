@@ -205,6 +205,42 @@ local Auras: { [string]: Aura } = {
 		rays = true,
 		light = true,
 	},
+	-- Exclusive (за Robux)
+	aurora = {
+		palette = { rgb(140, 240, 255), rgb(190, 140, 255), rgb(255, 160, 230) },
+		particles = "frost",
+		ring = true,
+		rays = true,
+		light = true,
+	},
+	chrono = {
+		palette = { rgb(255, 214, 120), rgb(200, 120, 50), rgb(255, 245, 200) },
+		particles = "sparkle",
+		ring = true,
+		rays = true,
+		light = true,
+	},
+	hoard = {
+		palette = { rgb(255, 200, 60), rgb(255, 60, 80), rgb(80, 220, 140) },
+		particles = "embers",
+		ring = true,
+		rays = true,
+		light = true,
+	},
+	nebula = {
+		palette = { rgb(255, 120, 220), rgb(140, 90, 255), rgb(90, 200, 255) },
+		particles = "stars",
+		ring = true,
+		rays = true,
+		light = true,
+	},
+	kitsune = {
+		palette = { rgb(255, 196, 228), rgb(140, 210, 255), rgb(255, 255, 255) },
+		particles = "petals",
+		ring = true,
+		rays = true,
+		light = true,
+	},
 }
 
 return Auras

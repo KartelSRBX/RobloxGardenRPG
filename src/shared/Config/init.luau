@@ -3,7 +3,9 @@
 return {
 	Rarities = require(script.Rarities),
 	Trees = require(script.Trees),
+	PremiumTrees = require(script.PremiumTrees),
 	Auras = require(script.Auras),
+	IconAssets = require(script.IconAssets),
 	Dungeon = require(script.Dungeon),
 	-- Доход и рост дерева из его n: монет/мин = incomeBase * n^incomeExp,
 	-- время урожая = growBase * n^growExp секунд. Плоды продаются автоматически при сборе.
@@ -119,24 +121,43 @@ return {
 		spacing = 13,
 		size = 9,
 	},
-	-- Предсказуемые покупки за Robux. id = 0 — пропуск ещё не создан на сайте,
-	-- в магазине показывается «скоро». Множитель монет не влияет на шансы.
+	-- Предсказуемые покупки за Robux (геймпассы): цена видна, результат известен заранее.
+	-- id = 0 — пропуск ещё не создан на сайте: в магазине «Soon», в Studio можно
+	-- выдать себе для проверки. price — рекомендованная цена для страницы пропуска.
+	-- Никаких бонусов к шансам и рандома за Robux (правила платформы).
 	GamePasses = {
+		{ key = "tree_aurora", id = 0, kind = "tree", treeId = "aurora", price = 399 },
+		{ key = "tree_chrono", id = 0, kind = "tree", treeId = "chrono", price = 299 },
+		{ key = "tree_hoard", id = 0, kind = "tree", treeId = "hoard", price = 499 },
+		{ key = "tree_nebula", id = 0, kind = "tree", treeId = "nebula", price = 449 },
+		{ key = "tree_kitsune", id = 0, kind = "tree", treeId = "kitsune", price = 349 },
 		{
 			key = "coins2x",
 			id = 0,
+			kind = "boost",
 			name = "2x Coins",
-			icon = "💰",
-			desc = "Double coins from harvests",
+			desc = "Double coins from every harvest",
+			price = 249,
 		},
 		{
 			key = "autoHarvest",
 			id = 0,
+			kind = "boost",
 			name = "Auto Harvest",
-			icon = "🤖",
-			desc = "Ripe trees harvest themselves",
+			desc = "Ripe trees harvest themselves while you are in the game",
+			price = 199,
+		},
+		{
+			key = "plots2",
+			id = 0,
+			kind = "island",
+			name = "Bigger Island",
+			desc = "+2 plots on your island, forever",
+			price = 299,
 		},
 	},
+	-- Сколько грядок даёт пропуск Bigger Island.
+	BonusPlots = 2,
 	Data = {
 		storeName = "PlayerData_v1",
 		autosaveInterval = 60, -- секунды
@@ -164,5 +185,6 @@ return {
 		equipaura = 0.5,
 		sellitem = 0.2,
 		sellseed = 0.2,
+		testgrant = 1,
 	},
 }
