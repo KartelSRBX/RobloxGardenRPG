@@ -25,10 +25,13 @@ local Remotes = {
 		"DungeonAttack",
 		"DungeonRevive",
 		"DungeonLeave",
+		"SellItem",
+		"SellSeed",
+		"EquipAura",
 	},
 	-- RemoteEvent: State — снимок профиля, Dungeon — состояние забега,
 	-- Fx — эффекты (монеты над грядкой, удары), Rolled — результат авто-крутки
-	events = { "State", "Dungeon", "Fx", "Rolled" },
+	events = { "State", "Dungeon", "Fx", "Rolled", "Announce" },
 }
 
 local function folder(): Folder

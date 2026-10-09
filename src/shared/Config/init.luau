@@ -3,11 +3,12 @@
 return {
 	Rarities = require(script.Rarities),
 	Trees = require(script.Trees),
+	Auras = require(script.Auras),
 	Dungeon = require(script.Dungeon),
 	-- Доход и рост дерева из его n: монет/мин = incomeBase * n^incomeExp,
 	-- время урожая = growBase * n^growExp секунд. Плоды продаются автоматически при сборе.
 	Economy = {
-		incomeBase = 3,
+		incomeBase = 30, -- крупные числа приятнее: всё в монетах ×10 к черновику
 		incomeExp = 0.5,
 		growBase = 25,
 		growExp = 0.25,
@@ -47,26 +48,26 @@ return {
 		},
 		-- улучшения крутилки за монеты
 		luckStep = 0.1,
-		luckCostBase = 200,
+		luckCostBase = 2000,
 		luckCostGrowth = 1.5,
 		luckMaxLevel = 60,
 		speedStep = 0.1,
-		speedCostBase = 150,
+		speedCostBase = 1500,
 		speedCostGrowth = 1.9,
 		minCooldown = 1.5,
 	},
 	-- Остров: { грядок, минут в игре, монет, ростков } для каждого уровня.
 	Island = {
 		{ plots = 3, minutes = 0, coins = 0, seeds = 0 },
-		{ plots = 4, minutes = 3, coins = 50, seeds = 8 },
-		{ plots = 5, minutes = 10, coins = 300, seeds = 20 },
-		{ plots = 6, minutes = 30, coins = 2000, seeds = 50 },
-		{ plots = 7, minutes = 90, coins = 12000, seeds = 120 },
-		{ plots = 8, minutes = 240, coins = 60000, seeds = 300 },
-		{ plots = 9, minutes = 600, coins = 300000, seeds = 700 },
-		{ plots = 10, minutes = 1200, coins = 1500000, seeds = 1500 },
-		{ plots = 11, minutes = 2400, coins = 7500000, seeds = 3000 },
-		{ plots = 12, minutes = 6000, coins = 40000000, seeds = 6000 },
+		{ plots = 4, minutes = 3, coins = 500, seeds = 8 },
+		{ plots = 5, minutes = 10, coins = 3000, seeds = 20 },
+		{ plots = 6, minutes = 30, coins = 20000, seeds = 50 },
+		{ plots = 7, minutes = 90, coins = 120000, seeds = 120 },
+		{ plots = 8, minutes = 240, coins = 600000, seeds = 300 },
+		{ plots = 9, minutes = 600, coins = 3000000, seeds = 700 },
+		{ plots = 10, minutes = 1200, coins = 15000000, seeds = 1500 },
+		{ plots = 11, minutes = 2400, coins = 75000000, seeds = 3000 },
+		{ plots = 12, minutes = 6000, coins = 400000000, seeds = 6000 },
 	},
 	-- chance в процентах; остаток до 100 = без мутации.
 	Mutations = {
@@ -93,6 +94,21 @@ return {
 		},
 	},
 	StartingCoins = 0,
+	-- Добыча из подземелья: продаётся в инвентаре за монеты.
+	-- drops: враг -> { предмет, шанс в процентах }.
+	Items = {
+		slimegel = { name = "Slime Gel", value = 60, color = Color3.fromRGB(110, 230, 140) },
+		bone = { name = "Ancient Bone", value = 150, color = Color3.fromRGB(230, 222, 200) },
+		soulgem = { name = "Soul Gem", value = 800, color = Color3.fromRGB(170, 110, 255) },
+		crown = { name = "Shadow Crown", value = 2500, color = Color3.fromRGB(255, 196, 70) },
+	},
+	Drops = {
+		slime = { { "slimegel", 45 } },
+		skeleton = { { "bone", 40 }, { "soulgem", 3 } },
+		boss = { { "crown", 100 }, { "soulgem", 30 } },
+	},
+	-- Компост ростков из инвентаря: столько секунд дохода этого дерева за штуку.
+	SellSeedSeconds = 20,
 	StartingSeeds = { oak = 1 }, -- для туториала: первая посадка до первой крутки
 	Fertilizer = {
 		cut = 0.5, -- срезает 50% полного времени роста текущего урожая
@@ -145,5 +161,8 @@ return {
 		dungeonattack = 0.1, -- реальная перезарядка атаки — Dungeon.player.attackCooldown
 		dungeonrevive = 0.5,
 		dungeonleave = 0.5,
+		equipaura = 0.5,
+		sellitem = 0.2,
+		sellseed = 0.2,
 	},
 }

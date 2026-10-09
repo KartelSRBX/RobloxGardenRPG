@@ -36,6 +36,17 @@ function Garden.rarity(id: string)
 	return Config.Rarities[1]
 end
 
+-- Сияние вида; если не задано — из цветов редкости.
+function Garden.aura(id: string)
+	local a = Config.Auras[id]
+	if a then
+		return a
+	end
+	local tree = Garden.tree(id)
+	local r = Garden.rarity(if tree then tree.rarity else "common")
+	return { palette = { r.color, r.color2, r.color }, particles = "motes" }
+end
+
 function Garden.mutation(id: string?)
 	if id == nil then
 		return nil

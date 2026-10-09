@@ -18,11 +18,11 @@ return {
 	wavePause = 4, -- секунды между волнами
 	maxRuns = 6, -- одновременно забегов на сервер (арен)
 	waves = {
-		{ count = 3, hp = 40, damage = 6, speed = 9, kind = "slime", coins = 25 },
-		{ count = 5, hp = 50, damage = 6, speed = 10, kind = "slime", coins = 40 },
-		{ count = 4, hp = 80, damage = 8, speed = 11, kind = "skeleton", coins = 70 },
-		{ count = 5, hp = 90, damage = 9, speed = 12, kind = "skeleton", coins = 100 },
-		{ count = 1, hp = 600, damage = 18, speed = 10, kind = "boss", coins = 300 },
+		{ count = 3, hp = 40, damage = 6, speed = 9, kind = "slime", coins = 250 },
+		{ count = 5, hp = 50, damage = 6, speed = 10, kind = "slime", coins = 400 },
+		{ count = 4, hp = 80, damage = 8, speed = 11, kind = "skeleton", coins = 700 },
+		{ count = 5, hp = 90, damage = 9, speed = 12, kind = "skeleton", coins = 1000 },
+		{ count = 1, hp = 600, damage = 18, speed = 10, kind = "boss", coins = 3000 },
 	} :: { Wave },
 	player = {
 		hp = 100,
