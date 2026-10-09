@@ -15,8 +15,9 @@ type Profile = any
 
 local IslandWorld = {}
 
-local SLOTS = 6
-local RING = 190 -- расстояние островов от хаба
+-- Островов столько, сколько мест на сервере (минимум 6); кольцо расширяется под их число.
+local SLOTS = math.max(6, Players.MaxPlayers)
+local RING = math.max(190, SLOTS * 26) -- расстояние островов от хаба
 local HEIGHT = 40 -- высота поверхности островов и хаба
 
 local slotOwner: { [number]: Player } = {}

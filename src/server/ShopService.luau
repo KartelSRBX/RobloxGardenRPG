@@ -42,6 +42,11 @@ local function load(player: Player)
 	changed:Fire(player)
 end
 
+-- Загружено ли владение пропусками (до этого ничего не удаляем по «не куплено»).
+function ShopService.isLoaded(player: Player): boolean
+	return owned[player] ~= nil
+end
+
 function ShopService.owns(player: Player, key: string): boolean
 	local set = owned[player]
 	return set ~= nil and set[key] == true

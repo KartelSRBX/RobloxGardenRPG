@@ -159,7 +159,8 @@ return {
 	-- Сколько грядок даёт пропуск Bigger Island.
 	BonusPlots = 2,
 	Data = {
-		storeName = "PlayerData_v1",
+		-- r1 — первый публичный релиз: тестовые сохранения из Studio сюда не попадают.
+		storeName = "PlayerData_r1",
 		autosaveInterval = 60, -- секунды
 		lockTimeout = 180, -- чужой замок старше этого считается брошенным
 		loadRetries = 5,

@@ -333,6 +333,42 @@ function UI.shimmer(g: UIGradient, speed: number?)
 	shimmering[g] = speed or 1.5
 end
 
+-- Масштаб HUD под маленькие экраны (телефон в горизонтали ~390 точек по высоте).
+-- Кластер сжимается вокруг своей AnchorPoint, поэтому остаётся прижатым к краю.
+local scaled: { UIScale } = {}
+local function screenScale(): number
+	local cam = workspace.CurrentCamera
+	local vp = if cam then cam.ViewportSize else Vector2.new(1280, 720)
+	return math.clamp(math.min(vp.Y / 620, vp.X / 1100), 0.72, 1)
+end
+local function rescaleAll()
+	local k = screenScale()
+	for _, s in scaled do
+		s.Scale = k
+	end
+end
+task.spawn(function()
+	while not workspace.CurrentCamera do
+		workspace:GetPropertyChangedSignal("CurrentCamera"):Wait()
+	end
+	local cam = workspace.CurrentCamera :: Camera
+	cam:GetPropertyChangedSignal("ViewportSize"):Connect(rescaleAll)
+	rescaleAll()
+end)
+function UI.autoScale(obj: GuiObject)
+	local found = obj:FindFirstChild("AutoScale")
+	local s: UIScale
+	if found and found:IsA("UIScale") then
+		s = found
+	else
+		s = Instance.new("UIScale")
+		s.Name = "AutoScale"
+		s.Parent = obj
+	end
+	table.insert(scaled, s)
+	s.Scale = screenScale()
+end
+
 -- Цвет в hex для rich text.
 function UI.hex(c: Color3): string
 	return string.format(

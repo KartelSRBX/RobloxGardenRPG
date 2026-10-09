@@ -231,12 +231,33 @@ DungeonService.onEnd = function(player)
 	task.delay(0.2, IslandWorld.sendHome, player)
 end
 
+-- Сверка с покупками: бонусные грядки и эксклюзивные деревья только у владельцев
+-- (например, после проверки через TEST в Studio дерево не остаётся навсегда).
+local function syncPurchases(player: Player)
+	local profile = DataService.get(player)
+	if not profile or not ShopService.isLoaded(player) then
+		return
+	end
+	GardenService.ensurePlots(profile, ShopService.bonusPlots(player))
+	local ownedTrees = ShopService.ownedTrees(player)
+	for i, plot in profile.plots do
+		if plot.plantId and Garden.isPremium(plot.plantId) and not ownedTrees[plot.plantId] then
+			profile.plots[i] = { level = 0, plantedAt = 0, mutationRolled = false }
+		end
+	end
+	if profile.aura and Garden.isPremium(profile.aura) and not ownedTrees[profile.aura] then
+		profile.aura = nil
+		InventoryService.applyAura(player, profile)
+	end
+end
+
 -- Свой остров и появление на нём.
 local function onLoaded(player: Player)
 	if not DataService.get(player) then
 		return
 	end
 	IslandWorld.assign(player)
+	syncPurchases(player)
 	pushState(player)
 	IslandWorld.sendHome(player)
 	InventoryService.applyAura(player, DataService.get(player) :: Profile)
@@ -263,10 +284,7 @@ Players.PlayerRemoving:Connect(RollService.forget)
 DataService.loaded:Connect(onLoaded)
 -- пропуски загрузились или куплены: добавить бонусные грядки и обновить клиента
 ShopService.changed:Connect(function(player)
-	local profile = DataService.get(player)
-	if profile then
-		GardenService.ensurePlots(profile, ShopService.bonusPlots(player))
-	end
+	syncPurchases(player)
 	pushState(player)
 end)
 ShopService.start()

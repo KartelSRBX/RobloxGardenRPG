@@ -323,6 +323,10 @@ end
 
 RollReveal.init(gui)
 local rollHud = RollHud.new(worldHud, ctx)
+-- компактнее на телефонах
+UI.autoScale(nav)
+UI.autoScale(right)
+UI.autoScale(rollHud.root)
 AuraFx.start()
 OrbitFx.start()
 DungeonHud.new(gui, ctx)

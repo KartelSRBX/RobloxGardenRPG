@@ -61,6 +61,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 	topLimit.MinSize = Vector2.new(260, 104)
 	topLimit.Parent = top
 	UI.corner(top, 16)
+	UI.autoScale(top)
 	UI.stroke(top, UI.colors.purple, 1.5, 0.3)
 	local waveLabel =
 		UI.label(top, "", { Size = UDim2.new(1, -16, 0, 30), Position = UDim2.fromOffset(8, 6) })
