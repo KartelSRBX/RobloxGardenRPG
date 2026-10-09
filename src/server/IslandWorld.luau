@@ -16,7 +16,8 @@ type Profile = any
 local IslandWorld = {}
 
 -- Островов столько, сколько мест на сервере (минимум 6); кольцо расширяется под их число.
-local SLOTS = math.max(6, Players.MaxPlayers)
+-- (в Studio MaxPlayers бывает большим, поэтому не больше 12: иначе острова улетают далеко)
+local SLOTS = math.clamp(Players.MaxPlayers, 6, 12)
 local RING = math.max(190, SLOTS * 26) -- расстояние островов от хаба
 local HEIGHT = 40 -- высота поверхности островов и хаба
 
