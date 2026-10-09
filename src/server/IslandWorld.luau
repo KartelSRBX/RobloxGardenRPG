@@ -288,6 +288,7 @@ function IslandWorld.sendHub(player: Player)
 end
 
 Players.PlayerRemoving:Connect(IslandWorld.release)
+folder() -- папка нужна клиентам сразу, ещё до загрузки первого профиля
 
 -- Упал с острова — вернуть домой.
 task.spawn(function()

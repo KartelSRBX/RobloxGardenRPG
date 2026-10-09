@@ -10,6 +10,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local DungeonConfig = require(ReplicatedStorage.Shared.Config.Dungeon)
 local Garden = require(ReplicatedStorage.Shared.Garden)
 local DataService = require(script.Parent.DataService)
+local EnemyBuilder = require(script.Parent.EnemyBuilder)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local RollService = require(script.Parent.RollService)
 
@@ -24,9 +25,12 @@ type Enemy = {
 	damage: number,
 	lastHit: number,
 	bar: Frame,
+	kind: string,
+	bestDist: number, -- для защиты от застревания
+	stuckSince: number,
 }
 
-type Loot = { coins: number, fertilizer: number, seeds: { string } }
+type Loot = { coins: number, fertilizer: number, seeds: { string }, drops: { [string]: number } }
 
 type Run = {
 	player: Player,
@@ -86,97 +90,9 @@ local function push(run: Run, extra: { [string]: any }?)
 	DungeonService.send(run.player, snapshot(run, extra))
 end
 
--- Враги собираются из кубов в воксельном стиле.
-local function weld(a: BasePart, b: BasePart)
-	local w = Instance.new("WeldConstraint")
-	w.Part0 = a
-	w.Part1 = b
-	w.Parent = a
-end
-
-local function cube(
-	parent: Instance,
-	size: Vector3,
-	cf: CFrame,
-	color: Color3,
-	material: Enum.Material?
-): Part
-	local p = Instance.new("Part")
-	p.Size = size
-	p.CFrame = cf
-	p.Color = color
-	p.Material = material or Enum.Material.SmoothPlastic
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	p.CanCollide = false
-	p.Massless = true
-	p.Parent = parent
-	return p
-end
-
+-- Враги: воксельное тело (EnemyBuilder), Humanoid и полоска здоровья.
 local function makeEnemy(kind: string, wave: DungeonConfig.Wave, at: CFrame): Enemy
-	local model = Instance.new("Model")
-	model.Name = kind
-	local size: Vector3
-	local color: Color3
-	if kind == "boss" then
-		size = Vector3.new(9, 8, 9)
-		color = Color3.fromRGB(130, 60, 200)
-	elseif kind == "skeleton" then
-		size = Vector3.new(2.6, 5, 2.2)
-		color = Color3.fromRGB(225, 220, 205)
-	else
-		size = Vector3.new(4, 3.2, 4)
-		color = Color3.fromRGB(90, 210, 110)
-	end
-	local root = cube(model, size, at + Vector3.new(0, size.Y / 2 + 0.1, 0), color)
-	root.Name = "HumanoidRootPart"
-	root.Massless = false
-	root.CanCollide = true
-	if kind ~= "skeleton" then
-		root.Material = Enum.Material.Glass
-		root.Transparency = 0.15
-	end
-	local face = root.CFrame
-	-- глаза
-	for _, side in { -1, 1 } do
-		local eyeY = if kind == "skeleton" then size.Y * 0.32 else size.Y * 0.12
-		local eye = cube(
-			model,
-			Vector3.new(0.6, 0.8, 0.2) * (if kind == "boss" then 2 else 1),
-			face * CFrame.new(side * size.X * 0.2, eyeY, -size.Z / 2 - 0.05),
-			if kind == "boss" then Color3.fromRGB(255, 60, 60) else Color3.fromRGB(20, 20, 30),
-			if kind == "boss" then Enum.Material.Neon else nil
-		)
-		weld(root, eye)
-	end
-	if kind == "boss" then
-		for i = -1, 1 do
-			local spike = cube(
-				model,
-				Vector3.new(1.2, 2, 1.2),
-				face * CFrame.new(i * 2.6, size.Y / 2 + 1, 0),
-				Color3.fromRGB(255, 205, 50),
-				Enum.Material.Neon
-			)
-			weld(root, spike)
-		end
-	elseif kind == "skeleton" then
-		local head =
-			cube(model, Vector3.new(2.2, 2, 2.2), face * CFrame.new(0, size.Y / 2 + 1, 0), color)
-		weld(root, head)
-		for _, side in { -1, 1 } do
-			local eye = cube(
-				model,
-				Vector3.new(0.5, 0.5, 0.1),
-				face * CFrame.new(side * 0.5, size.Y / 2 + 1.2, -1.15),
-				Color3.fromRGB(255, 80, 60),
-				Enum.Material.Neon
-			)
-			weld(root, eye)
-		end
-	end
-
+	local model, root, size = EnemyBuilder.build(kind, at)
 	local humanoid = Instance.new("Humanoid")
 	humanoid.HipHeight = 0.1
 	humanoid.WalkSpeed = wave.speed
@@ -212,6 +128,9 @@ local function makeEnemy(kind: string, wave: DungeonConfig.Wave, at: CFrame): En
 		maxHp = wave.hp,
 		damage = wave.damage,
 		lastHit = 0,
+		kind = kind,
+		bestDist = math.huge,
+		stuckSince = os.clock(),
 		bar = bar,
 	}
 end
@@ -255,12 +174,19 @@ local function bank(player: Player, loot: Loot, keepRatio: number): (Loot, Loot)
 		coins = math.floor(loot.coins * keepRatio),
 		fertilizer = math.floor(loot.fertilizer * keepRatio),
 		seeds = {},
+		drops = {},
 	}
 	local lost: Loot = {
 		coins = loot.coins - kept.coins,
 		fertilizer = loot.fertilizer - kept.fertilizer,
 		seeds = {},
+		drops = {},
 	}
+	for id, count in loot.drops do
+		local k = math.floor(count * keepRatio + 1e-9)
+		kept.drops[id] = if k > 0 then k else nil
+		lost.drops[id] = if count - k > 0 then count - k else nil
+	end
 	for i, id in seeds do
 		table.insert(if i <= keepSeeds then kept.seeds else lost.seeds, id)
 	end
@@ -273,6 +199,9 @@ local function bank(player: Player, loot: Loot, keepRatio: number): (Loot, Loot)
 		for _, id in kept.seeds do
 			profile.found[id] = true
 			RollService.giveSeed(profile, id)
+		end
+		for id, count in kept.drops do
+			profile.items[id] = (profile.items[id] or 0) + count
 		end
 	end
 	return kept, lost
@@ -317,7 +246,7 @@ end
 
 local function waveCleared(run: Run)
 	local wave = D.waves[run.wave]
-	local gained: Loot = { coins = wave.coins, fertilizer = 0, seeds = {} }
+	local gained: Loot = { coins = wave.coins, fertilizer = 0, seeds = {}, drops = {} }
 	if rng:NextNumber() * 100 < D.loot.fertilizerChance then
 		gained.fertilizer = 1
 	end
@@ -395,6 +324,26 @@ local function step(run: Run, now: number)
 	for _, e in run.enemies do
 		local dist = (e.root.Position - root.Position).Magnitude
 		e.humanoid:MoveTo(root.Position)
+		-- застрял: сначала прыжок, потом переносим ближе к игроку
+		if dist < e.bestDist - 1 then
+			e.bestDist = dist
+			e.stuckSince = now
+		elseif dist > D.enemy.touchRange + e.root.Size.X and now - e.stuckSince > 2.5 then
+			e.humanoid.Jump = true
+			if now - e.stuckSince > 5 then
+				local a = rng:NextNumber() * math.pi * 2
+				local c = run.arena:GetPivot().Position
+				local to = root.Position + Vector3.new(math.cos(a) * 14, 0, math.sin(a) * 14)
+				to = Vector3.new(
+					math.clamp(to.X, c.X - 38, c.X + 38),
+					to.Y,
+					math.clamp(to.Z, c.Z - 38, c.Z + 38)
+				)
+				e.model:PivotTo(CFrame.new(to.X, root.Position.Y - 2 + e.root.Size.Y / 2, to.Z))
+				e.bestDist = math.huge
+				e.stuckSince = now
+			end
+		end
 		if
 			dist <= D.enemy.touchRange + e.root.Size.X / 2
 			and now - e.lastHit >= D.enemy.attackCooldown
@@ -448,7 +397,7 @@ function DungeonService.enter(player: Player, profile: Profile): string?
 		slot = slot,
 		wave = 1,
 		enemies = {},
-		loot = { coins = 0, fertilizer = 0, seeds = {} },
+		loot = { coins = 0, fertilizer = 0, seeds = {}, drops = {} },
 		revivesLeft = D.revives,
 		state = "start",
 		lastAttack = 0,
@@ -513,6 +462,16 @@ function DungeonService.attack(player: Player): string?
 			end
 			if e.hp <= 0 then
 				DungeonService.fx(player, { kind = "kill", pos = e.root.Position })
+				-- добыча с врага
+				for _, drop in Config.Drops[e.kind] or {} do
+					if rng:NextNumber() * 100 < drop[2] then
+						run.loot.drops[drop[1]] = (run.loot.drops[drop[1]] or 0) + 1
+						DungeonService.fx(
+							player,
+							{ kind = "drop", pos = e.root.Position, item = drop[1] }
+						)
+					end
+				end
 				e.model:Destroy()
 				table.remove(run.enemies, i)
 			end

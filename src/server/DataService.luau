@@ -25,6 +25,7 @@ export type Profile = {
 	playSeconds: number, -- время в игре
 	islandTier: number,
 	autoRoll: boolean,
+	aura: string?, -- надетое сияние (id открытого вида), косметика
 }
 
 type Lock = { jobId: string, t: number }
@@ -73,6 +74,7 @@ local function newProfile(): Profile
 		playSeconds = 0,
 		islandTier = 1,
 		autoRoll = false,
+		aura = nil,
 	}
 end
 
@@ -102,6 +104,7 @@ local function reconcile(data: any): Profile
 		playSeconds = field(data.playSeconds, "number", 0),
 		islandTier = field(data.islandTier, "number", 0),
 		autoRoll = field(data.autoRoll, "boolean", false),
+		aura = if type(data.aura) == "string" then data.aura else nil,
 	}
 	-- Уровень острова для старых профилей: не меньше, чем уже есть грядок.
 	if p.islandTier < 1 then
@@ -126,6 +129,14 @@ local function reconcile(data: any): Profile
 	end
 	for id in p.seeds do
 		p.found[id] = true
+	end
+	for id in p.items do
+		if id ~= "fertilizer" and not Config.Items[id] then
+			p.items[id] = nil
+		end
+	end
+	if p.aura and not p.found[p.aura] then
+		p.aura = nil
 	end
 	for i = #p.plots + 1, Garden.islandPlots(p.islandTier) do
 		p.plots[i] = emptyPlot()

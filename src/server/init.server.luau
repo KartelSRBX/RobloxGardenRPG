@@ -5,12 +5,14 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local Garden = require(ReplicatedStorage.Shared.Garden)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local DataService = require(script.DataService)
 local DungeonService = require(script.DungeonService)
 local GardenService = require(script.GardenService)
 local IslandWorld = require(script.IslandWorld)
 local RateLimit = require(script.RateLimit)
+local InventoryService = require(script.InventoryService)
 local RollService = require(script.RollService)
 local ShopService = require(script.ShopService)
 
@@ -21,6 +23,19 @@ local stateEvent = Remotes.event("State")
 local dungeonEvent = Remotes.event("Dungeon")
 local fxEvent = Remotes.event("Fx")
 local rolledEvent = Remotes.event("Rolled")
+local announceEvent = Remotes.event("Announce")
+
+-- Редкая находка или первая находка легендарки и выше — сообщаем всему серверу.
+local function announce(player: Player, result: any)
+	local tree = Garden.tree(result.treeId)
+	if not tree then
+		return
+	end
+	local rarity = Garden.rarity(tree.rarity)
+	if rarity.announce then
+		announceEvent:FireAllClients({ name = player.DisplayName, treeId = result.treeId })
+	end
+end
 
 -- Снимок профиля клиенту + перерисовка острова.
 local function pushState(player: Player)
@@ -77,6 +92,9 @@ end
 -- Крутилка
 handle("Roll", function(player)
 	local result, err = RollService.roll(player)
+	if result then
+		announce(player, result)
+	end
 	return { ok = result ~= nil, error = err, result = result }
 end)
 
@@ -90,6 +108,25 @@ end)
 
 handle("BuyLuck", simple(RollService.buyLuck))
 handle("BuySpeed", simple(RollService.buySpeed))
+
+-- Инвентарь
+handle("SellItem", function(_, profile, id, count)
+	local value, err = InventoryService.sellItem(profile, id, count)
+	return { ok = value ~= nil, error = err, coins = value }
+end)
+
+handle("SellSeed", function(_, profile, id, count)
+	local value, err = InventoryService.sellSeed(profile, id, count)
+	return { ok = value ~= nil, error = err, coins = value }
+end)
+
+handle("EquipAura", function(player, profile, id)
+	local err = InventoryService.equipAura(profile, id)
+	if not err then
+		InventoryService.applyAura(player, profile)
+	end
+	return { ok = err == nil, error = err }
+end)
 
 -- Сад
 handle("Plant", function(_, profile, slot, treeId)
@@ -193,12 +230,17 @@ local function onLoaded(player: Player)
 	IslandWorld.assign(player)
 	pushState(player)
 	IslandWorld.sendHome(player)
+	InventoryService.applyAura(player, DataService.get(player) :: Profile)
 end
 
 local function watchCharacter(player: Player)
 	player.CharacterAdded:Connect(function()
 		task.wait(0.1)
-		if DataService.get(player) and not DungeonService.isInRun(player) then
+		local profile = DataService.get(player)
+		if profile then
+			InventoryService.applyAura(player, profile)
+		end
+		if profile and not DungeonService.isInRun(player) then
 			IslandWorld.sendHome(player)
 		end
 	end)
@@ -252,6 +294,7 @@ task.spawn(function()
 			if profile and profile.autoRoll and not DungeonService.isInRun(player) then
 				local result = RollService.roll(player)
 				if result then
+					announce(player, result)
 					rolledEvent:FireClient(player, result)
 					pushState(player)
 				end
