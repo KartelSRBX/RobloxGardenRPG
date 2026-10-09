@@ -9,6 +9,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Garden = require(ReplicatedStorage.Shared.Garden)
 local Net = require(script.Parent.Net)
 local State = require(script.Parent.State)
+local Icons = require(script.Parent.Icons)
 local UI = require(script.Parent.UI)
 
 local D = Config.Dungeon
@@ -60,7 +61,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 	topLimit.MinSize = Vector2.new(260, 104)
 	topLimit.Parent = top
 	UI.corner(top, 16)
-	UI.stroke(top, UI.colors.purple, 3)
+	UI.stroke(top, UI.colors.purple, 1.5, 0.3)
 	local waveLabel =
 		UI.label(top, "", { Size = UDim2.new(1, -16, 0, 30), Position = UDim2.fromOffset(8, 6) })
 	UI.textStroke(waveLabel)
@@ -92,21 +93,34 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 	bannerScale.Parent = banner
 
 	-- Кнопка атаки справа (над кнопкой прыжка на телефоне)
-	local attack = UI.button(root, "HIT", UI.colors.red, {
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -24, 1, -190),
-		Size = UDim2.fromOffset(120, 120),
-		TextSize = 60,
-		TextScaled = false,
+	-- круглая кнопка атаки в стиле медальона крутки: стекло, красное кольцо, меч
+	local attack = Instance.new("TextButton")
+	attack.Name = "AttackButton"
+	attack.Text = ""
+	attack.AutoButtonColor = false
+	attack.AnchorPoint = Vector2.new(1, 1)
+	attack.Position = UDim2.new(1, -24, 1, -190)
+	attack.Size = UDim2.fromOffset(110, 110)
+	attack.BackgroundColor3 = UI.colors.bg
+	attack.BackgroundTransparency = 0.08
+	attack.Parent = root
+	UI.corner(attack, 55)
+	local attackRing = UI.stroke(attack, UI.colors.red, 3)
+	local swordHolder = UI.frame(attack, {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.55, 0.55),
+		BackgroundTransparency = 1,
 	})
-	UI.corner(attack, 60)
-	UI.stroke(attack, Color3.new(1, 1, 1), 4)
-	local attackHint = UI.label(attack, "ATTACK", {
+	Icons.sword(swordHolder, Color3.fromRGB(236, 238, 244), UI.colors.red)
+	local attackScale = Instance.new("UIScale")
+	attackScale.Parent = attack
+	UI.label(attack, "ATTACK", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 1, 2),
-		Size = UDim2.fromOffset(120, 24),
+		Position = UDim2.new(0.5, 0, 1, 4),
+		Size = UDim2.fromOffset(110, 14),
+		TextStrokeTransparency = 0.55,
 	})
-	UI.textStroke(attackHint)
 
 	local leave = UI.button(root, "Leave with loot", UI.colors.blue, {
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -135,7 +149,7 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 	cardLimit.MaxSize = Vector2.new(460, 400)
 	cardLimit.Parent = card
 	UI.corner(card, 20)
-	local cardStroke = UI.stroke(card, UI.colors.purple, 4)
+	local cardStroke = UI.stroke(card, UI.colors.purple, 2)
 	UI.pad(card, 16)
 	UI.list(card, 10)
 	local cardTitle =
@@ -188,9 +202,13 @@ function DungeonHud.new(gui: ScreenGui, ctx: any)
 		end
 		local res = Net.request("DungeonAttack")
 		if res.ok then
-			attack.BackgroundColor3 = UI.colors.disabled
+			attackRing.Transparency = 0.6
+			attackScale.Scale = 0.92
+			TweenService
+				:Create(attackScale, TweenInfo.new(0.2, Enum.EasingStyle.Back), { Scale = 1 })
+				:Play()
 			task.delay(D.player.attackCooldown, function()
-				attack.BackgroundColor3 = UI.colors.red
+				attackRing.Transparency = 0
 			end)
 		end
 	end
