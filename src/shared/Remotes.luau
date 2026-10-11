@@ -28,6 +28,8 @@ local Remotes = {
 		"SellItem",
 		"SellSeed",
 		"EquipAura",
+		"EquipWeapon",
+		"SetSetting",
 		"TestGrant",
 	},
 	-- RemoteEvent: State — снимок профиля, Dungeon — состояние забега,

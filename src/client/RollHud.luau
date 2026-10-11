@@ -15,6 +15,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local Icons = require(script.Parent.Icons)
 local Net = require(script.Parent.Net)
 local RollReveal = require(script.Parent.RollReveal)
+local Sfx = require(script.Parent.Sfx)
 local State = require(script.Parent.State)
 local UI = require(script.Parent.UI)
 
@@ -523,11 +524,13 @@ function RollHud.new(parent: Instance, ctx: any)
 		end)
 		-- щелчки метки, когда карточка проходит центр
 		local lastIndex = -1
+		local rollStartedAt = os.clock()
 		local clicker = RunService.RenderStepped:Connect(function()
 			local x = center - strip.Position.X.Offset
 			local index = math.floor(x / STEP)
 			if index ~= lastIndex then
 				lastIndex = index
+				Sfx.rollTick(math.clamp((os.clock() - rollStartedAt) / duration, 0, 1))
 				markerScale.Scale = 1.6
 				tween(markerScale, 0.08, { Scale = 1 })
 			end
@@ -577,7 +580,9 @@ function RollHud.new(parent: Instance, ctx: any)
 		landedScale.Scale = 1
 		showCard(res)
 		if RollReveal.wants(res) then
-			RollReveal.show(res)
+			RollReveal.show(res) -- звук выпадения включит сама большая анимация
+		else
+			Sfx.dropSting(res.treeId, res.lucky, res.isNew)
 		end
 		spinning = false
 		if pending then
@@ -602,6 +607,7 @@ function RollHud.new(parent: Instance, ctx: any)
 			return
 		end
 		readyAt = os.clock() + Luck.cooldown(profile)
+		Sfx.rollStart()
 		medalScale.Scale = 0.92
 		tween(medalScale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
 		local res = Net.request("Roll")

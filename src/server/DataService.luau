@@ -26,6 +26,9 @@ export type Profile = {
 	islandTier: number,
 	autoRoll: boolean,
 	aura: string?, -- надетое сияние (id открытого вида), косметика
+	weapons: { [string]: boolean }, -- найденное оружие
+	weapon: string, -- надетое оружие
+	settings: { [string]: any }, -- music, sfx, hints, reveal (0..1, bool, порядок редкости)
 }
 
 type Lock = { jobId: string, t: number }
@@ -75,6 +78,9 @@ local function newProfile(): Profile
 		islandTier = 1,
 		autoRoll = false,
 		aura = nil,
+		weapons = { wood_sword = true },
+		weapon = "wood_sword",
+		settings = { music = 1, sfx = 1, hints = true, reveal = 3 },
 	}
 end
 
@@ -105,6 +111,9 @@ local function reconcile(data: any): Profile
 		islandTier = field(data.islandTier, "number", 0),
 		autoRoll = field(data.autoRoll, "boolean", false),
 		aura = if type(data.aura) == "string" then data.aura else nil,
+		weapons = field(data.weapons, "table", fresh.weapons),
+		weapon = field(data.weapon, "string", "wood_sword"),
+		settings = field(data.settings, "table", fresh.settings),
 	}
 	-- Уровень острова для старых профилей: не меньше, чем уже есть грядок.
 	if p.islandTier < 1 then
@@ -137,6 +146,25 @@ local function reconcile(data: any): Profile
 	end
 	if p.aura and not p.found[p.aura] then
 		p.aura = nil
+	end
+	-- оружие: только известные id, стартовое всегда есть, надето то, что принадлежит игроку
+	local knownWeapons: { [string]: boolean } = {}
+	for _, w in Config.Weapons do
+		knownWeapons[w.id] = true
+	end
+	for id in p.weapons do
+		if not knownWeapons[id] then
+			p.weapons[id] = nil
+		end
+	end
+	p.weapons.wood_sword = true
+	if not p.weapons[p.weapon] then
+		p.weapon = "wood_sword"
+	end
+	for key, default in fresh.settings do
+		if type(p.settings[key]) ~= type(default) then
+			p.settings[key] = default
+		end
 	end
 	for i = #p.plots + 1, Garden.islandPlots(p.islandTier) do
 		p.plots[i] = emptyPlot()

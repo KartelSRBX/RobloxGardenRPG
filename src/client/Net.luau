@@ -25,7 +25,7 @@ local ERRORS: { [string]: string } = {
 	need_time = "Play a bit longer to expand",
 	need_seeds = "Need more sprouts to expand",
 	max_island = "Island is at max size",
-	not_owned = "Get this tree in the Shop",
+	not_owned = "You don't own this yet",
 	already_planted = "This tree is already on your island",
 	studio_only = "Purchases open when the game is published",
 }

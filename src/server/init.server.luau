@@ -120,6 +120,19 @@ handle("SellSeed", function(_, profile, id, count)
 	return { ok = value ~= nil, error = err, coins = value }
 end)
 
+handle("EquipWeapon", function(player, profile, id)
+	if DungeonService.isInRun(player) then
+		return { ok = false, error = "in_run" }
+	end
+	local err = InventoryService.equipWeapon(profile, id)
+	return { ok = err == nil, error = err }
+end)
+
+handle("SetSetting", function(_, profile, key, value)
+	local err = InventoryService.setSetting(profile, key, value)
+	return { ok = err == nil, error = err }
+end)
+
 handle("EquipAura", function(player, profile, id)
 	local err = InventoryService.equipAura(profile, id)
 	if not err then

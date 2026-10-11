@@ -303,6 +303,10 @@ function RollScreen.new(parent: Instance, ctx: any)
 	end
 
 	screen.visible = panel.visible
+	screen.showTab = function(name: string)
+		showTab(name)
+		screen.refresh()
+	end
 	return screen
 end
 

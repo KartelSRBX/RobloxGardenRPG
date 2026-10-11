@@ -7,9 +7,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local WeaponsConfig = require(ReplicatedStorage.Shared.Config.Weapons)
 local DungeonConfig = require(ReplicatedStorage.Shared.Config.Dungeon)
 local Garden = require(ReplicatedStorage.Shared.Garden)
 local DataService = require(script.Parent.DataService)
+local WeaponBuilder = require(script.Parent.WeaponBuilder)
 local EnemyBuilder = require(script.Parent.EnemyBuilder)
 local Luck = require(ReplicatedStorage.Shared.Luck)
 local RollService = require(script.Parent.RollService)
@@ -30,7 +32,13 @@ type Enemy = {
 	stuckSince: number,
 }
 
-type Loot = { coins: number, fertilizer: number, seeds: { string }, drops: { [string]: number } }
+type Loot = {
+	coins: number,
+	fertilizer: number,
+	seeds: { string },
+	drops: { [string]: number },
+	weapons: { string },
+}
 
 type Run = {
 	player: Player,
@@ -45,6 +53,8 @@ type Run = {
 	damage: number,
 	maxHp: number,
 	conns: { RBXScriptConnection },
+	weapon: WeaponsConfig.Weapon,
+	tool: Tool?,
 }
 
 local D = Config.Dungeon
@@ -147,6 +157,7 @@ local function spawnWave(run: Run)
 		table.insert(run.enemies, enemy)
 	end
 	run.state = "fight"
+	DungeonService.fx(run.player, { kind = "wave", enemy = wave.kind, count = wave.count })
 	push(run)
 end
 
@@ -175,13 +186,25 @@ local function bank(player: Player, loot: Loot, keepRatio: number): (Loot, Loot)
 		fertilizer = math.floor(loot.fertilizer * keepRatio),
 		seeds = {},
 		drops = {},
+		weapons = {},
 	}
 	local lost: Loot = {
 		coins = loot.coins - kept.coins,
 		fertilizer = loot.fertilizer - kept.fertilizer,
 		seeds = {},
 		drops = {},
+		weapons = {},
 	}
+	-- оружие: в сейф идёт самое редкое
+	local weapons = table.clone(loot.weapons)
+	table.sort(weapons, function(a, b)
+		local wa, wb = WeaponBuilder.byId(a), WeaponBuilder.byId(b)
+		return (wa and wa.tier or 0) > (wb and wb.tier or 0)
+	end)
+	local keepWeapons = math.floor(#weapons * keepRatio + 1e-9)
+	for i, id in weapons do
+		table.insert(if i <= keepWeapons then kept.weapons else lost.weapons, id)
+	end
 	for id, count in loot.drops do
 		local k = math.floor(count * keepRatio + 1e-9)
 		kept.drops[id] = if k > 0 then k else nil
@@ -203,6 +226,15 @@ local function bank(player: Player, loot: Loot, keepRatio: number): (Loot, Loot)
 		for id, count in kept.drops do
 			profile.items[id] = (profile.items[id] or 0) + count
 		end
+		for _, id in kept.weapons do
+			if profile.weapons[id] then
+				-- дубликат продаётся сразу
+				local w = WeaponBuilder.byId(id)
+				profile.coins += if w then w.value else 0
+			else
+				profile.weapons[id] = true
+			end
+		end
 	end
 	return kept, lost
 end
@@ -215,6 +247,10 @@ local function cleanup(run: Run)
 	slotsUsed[run.slot] = nil
 	runs[run.player] = nil
 	local hum = humanoidOf(run.player)
+	if run.tool then
+		run.tool:Destroy()
+		run.tool = nil
+	end
 	if hum then
 		hum.MaxHealth = 100
 		hum.Health = 100
@@ -246,12 +282,38 @@ end
 
 local function waveCleared(run: Run)
 	local wave = D.waves[run.wave]
-	local gained: Loot = { coins = wave.coins, fertilizer = 0, seeds = {}, drops = {} }
+	local gained: Loot =
+		{ coins = wave.coins, fertilizer = 0, seeds = {}, drops = {}, weapons = {} }
 	if rng:NextNumber() * 100 < D.loot.fertilizerChance then
 		gained.fertilizer = 1
 	end
 	if rng:NextNumber() * 100 < D.loot.seedChance then
 		table.insert(gained.seeds, rollSeed(run.player))
+	end
+	-- оружие: шанс за волну, босс всегда (тир по шансам волны)
+	local isBoss = wave.kind == "boss"
+	if isBoss or rng:NextNumber() * 100 < D.loot.weaponChance then
+		local odds = D.loot.weaponTierOdds[math.min(run.wave, #D.loot.weaponTierOdds)]
+		local pick = rng:NextNumber() * 100
+		local acc, tier = 0, 1
+		for t, chance in odds do
+			acc += chance
+			if pick <= acc and chance > 0 then
+				tier = t
+				break
+			end
+		end
+		local pool = {}
+		for _, w in WeaponsConfig do
+			if w.tier == tier then
+				table.insert(pool, w.id)
+			end
+		end
+		if #pool > 0 then
+			local id = pool[rng:NextInteger(1, #pool)]
+			table.insert(run.loot.weapons, id)
+			gained.weapons = { id }
+		end
 	end
 	run.loot.coins += gained.coins
 	run.loot.fertilizer += gained.fertilizer
@@ -280,7 +342,7 @@ local function knockBack(run: Run)
 	end
 end
 
-local function hurtPlayer(run: Run, amount: number)
+local function hurtPlayer(run: Run, amount: number, enemyKind: string?)
 	if run.state ~= "fight" then
 		return
 	end
@@ -309,7 +371,7 @@ local function hurtPlayer(run: Run, amount: number)
 		return
 	end
 	hum.Health -= amount
-	DungeonService.fx(run.player, { kind = "hurt", amount = amount })
+	DungeonService.fx(run.player, { kind = "hurt", amount = amount, enemy = enemyKind })
 end
 
 -- Перемещение и атаки врагов.
@@ -349,7 +411,7 @@ local function step(run: Run, now: number)
 			and now - e.lastHit >= D.enemy.attackCooldown
 		then
 			e.lastHit = now
-			hurtPlayer(run, e.damage)
+			hurtPlayer(run, e.damage, e.kind)
 			if run.state ~= "fight" then
 				return
 			end
@@ -391,19 +453,23 @@ function DungeonService.enter(player: Player, profile: Profile): string?
 	arena.Parent = workspace
 
 	local hpBuff, dmgBuff = Garden.buffs(profile.plots)
+	local weapon = WeaponBuilder.byId(profile.weapon)
+		or WeaponBuilder.byId("wood_sword") :: WeaponsConfig.Weapon
 	local run: Run = {
 		player = player,
 		arena = arena,
 		slot = slot,
 		wave = 1,
 		enemies = {},
-		loot = { coins = 0, fertilizer = 0, seeds = {}, drops = {} },
+		loot = { coins = 0, fertilizer = 0, seeds = {}, drops = {}, weapons = {} },
 		revivesLeft = D.revives,
 		state = "start",
 		lastAttack = 0,
-		damage = D.player.damage * (1 + dmgBuff),
+		damage = D.player.damage * weapon.damage * (1 + dmgBuff),
 		maxHp = D.player.hp + hpBuff,
 		conns = {},
+		weapon = weapon,
+		tool = nil,
 	}
 	runs[player] = run
 	hum.MaxHealth = run.maxHp
@@ -420,7 +486,14 @@ function DungeonService.enter(player: Player, profile: Profile): string?
 			end
 		end)
 	)
-	push(run, { startIn = 3 })
+	-- оружие в руку
+	local tool = WeaponBuilder.build(weapon.id)
+	if tool then
+		tool.Parent = player:FindFirstChildOfClass("Backpack")
+		hum:EquipTool(tool)
+		run.tool = tool
+	end
+	push(run, { startIn = 3, weapon = weapon.id })
 	task.delay(3, function()
 		if runs[player] == run then
 			spawnWave(run)
@@ -435,7 +508,7 @@ function DungeonService.attack(player: Player): string?
 		return "no_fight"
 	end
 	local now = os.clock()
-	if now - run.lastAttack < D.player.attackCooldown then
+	if now - run.lastAttack < run.weapon.cooldown - 0.05 then
 		return "cooldown"
 	end
 	run.lastAttack = now
@@ -447,21 +520,24 @@ function DungeonService.attack(player: Player): string?
 	for i = #run.enemies, 1, -1 do
 		local e = run.enemies[i]
 		local dist = (e.root.Position - root.Position).Magnitude - e.root.Size.X / 2
-		if dist <= D.player.attackRange then
+		if dist <= run.weapon.range then
 			hits += 1
 			e.hp -= run.damage
 			e.bar.Size = UDim2.fromScale(math.max(0, e.hp / e.maxHp), 1)
-			DungeonService.fx(
-				player,
-				{ kind = "hit", pos = e.root.Position, amount = math.floor(run.damage) }
-			)
+			DungeonService.fx(player, {
+				kind = "hit",
+				pos = e.root.Position,
+				amount = math.floor(run.damage),
+				enemy = e.kind,
+				weapon = run.weapon.id,
+			})
 			-- отбрасывание
 			local away = (e.root.Position - root.Position) * Vector3.new(1, 0, 1)
 			if away.Magnitude > 0.1 then
 				e.root.AssemblyLinearVelocity = away.Unit * 40 + Vector3.new(0, 15, 0)
 			end
 			if e.hp <= 0 then
-				DungeonService.fx(player, { kind = "kill", pos = e.root.Position })
+				DungeonService.fx(player, { kind = "kill", pos = e.root.Position, enemy = e.kind })
 				-- добыча с врага
 				for _, drop in Config.Drops[e.kind] or {} do
 					if rng:NextNumber() * 100 < drop[2] then
@@ -477,7 +553,14 @@ function DungeonService.attack(player: Player): string?
 			end
 		end
 	end
-	DungeonService.fx(player, { kind = "swing", hits = hits })
+	-- стандартная анимация руки (Animate читает toolanim)
+	if run.tool then
+		local anim = Instance.new("StringValue")
+		anim.Name = "toolanim"
+		anim.Value = run.weapon.toolanim
+		anim.Parent = run.tool
+	end
+	DungeonService.fx(player, { kind = "swing", hits = hits, weapon = run.weapon.id })
 	if #run.enemies == 0 then
 		waveCleared(run)
 	else

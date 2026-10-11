@@ -55,11 +55,14 @@ function ProfileScreen.new(parent: Instance, ctx: any)
 		if refreshers[name] then
 			refreshers[name]()
 		end
+		if name == "Weapons" then
+			ctx.markSeen("weapons")
+		end
 	end
-	for i, name in { "Character", "Auras", "Sprouts", "Items" } do
+	for i, name in { "Character", "Auras", "Weapons", "Sprouts", "Items" } do
 		local b = UI.button(tabsRow, string.upper(name), UI.colors.panelLight, {
 			Name = name .. "Tab",
-			Size = UDim2.new(0.25, -5, 1, 0),
+			Size = UDim2.new(0.2, -5, 1, 0),
 			LayoutOrder = i,
 		})
 		b.Activated:Connect(function()
@@ -324,6 +327,103 @@ function ProfileScreen.new(parent: Instance, ctx: any)
 		end
 	end
 
+	---------------------------------------------------------------- Weapons
+	local weaponsPage = pages.Weapons
+	UI.list(weaponsPage, 8)
+	local weaponsHeader = UI.label(weaponsPage, "", {
+		Size = UDim2.new(1, 0, 0, 18),
+		Font = UI.fontRegular,
+		TextColor3 = UI.colors.muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		LayoutOrder = 0,
+	})
+	local weaponGrid = grid(weaponsPage, 132, 2)
+	weaponGrid.LayoutOrder = 1
+	local weaponCards: { [string]: { name: TextLabel, stats: TextLabel, button: TextButton, tag: TextLabel } } =
+		{}
+	for i, w in Config.Weapons do
+		local tierColor = Config.Rarities[w.tier].color
+		local card =
+			UI.frame(weaponGrid, { LayoutOrder = i, BackgroundColor3 = Color3.new(1, 1, 1) })
+		UI.corner(card, 8)
+		UI.paletteGradient(card, { darken(w.blade, 0.7), darken(w.edge, 0.75) }, 35)
+		UI.stroke(card, tierColor, 1.5, 0.2)
+		local name = UI.label(card, "", {
+			Size = UDim2.new(1, -16, 0, 18),
+			Position = UDim2.fromOffset(8, 8),
+			TextXAlignment = Enum.TextXAlignment.Left,
+		})
+		local tag = UI.label(card, "", {
+			Size = UDim2.new(1, -16, 0, 12),
+			Position = UDim2.fromOffset(8, 28),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Font = UI.fontRegular,
+			TextColor3 = tierColor,
+		})
+		local stats = UI.label(card, "", {
+			Size = UDim2.new(1, -16, 0, 14),
+			Position = UDim2.fromOffset(8, 46),
+			TextXAlignment = Enum.TextXAlignment.Left,
+			Font = UI.fontRegular,
+		})
+		local button = UI.button(card, "", UI.colors.panelLight, {
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.new(0.5, 0, 1, -8),
+			Size = UDim2.new(1, -16, 0, 34),
+		})
+		button.Activated:Connect(function()
+			local profile = State.profile
+			if not profile or not profile.weapons[w.id] or profile.weapon == w.id then
+				return
+			end
+			local res = Net.request("EquipWeapon", w.id)
+			if res.ok then
+				ctx.toast(`{w.name} equipped`)
+			else
+				ctx.toast(Net.errorText(res.error))
+			end
+		end)
+		weaponCards[w.id] = { name = name, stats = stats, button = button, tag = tag }
+	end
+	refreshers.Weapons = function()
+		local profile = State.profile
+		if not profile then
+			return
+		end
+		local owned = 0
+		for id, c in weaponCards do
+			local w
+			for _, candidate in Config.Weapons do
+				if candidate.id == id then
+					w = candidate
+				end
+			end
+			local has = profile.weapons[id] == true
+			if has then
+				owned += 1
+			end
+			c.name.Text = if has then w.name else "???"
+			c.name.TextColor3 = if has then UI.colors.text else UI.colors.muted
+			c.tag.Text = `{Config.Rarities[w.tier].name} · {w.kind}`
+				.. (if w.anim and has then " · FX" else "")
+			c.stats.Text = if has
+				then `DMG x{w.damage} · RNG {w.range} · {string.format("%.2f", w.cooldown)}s`
+				else "Find it in the Dungeon"
+			if profile.weapon == id then
+				c.button.Text = "EQUIPPED"
+				c.button.BackgroundColor3 = UI.colors.green
+			elseif has then
+				c.button.Text = "EQUIP"
+				c.button.BackgroundColor3 = UI.colors.blue
+			else
+				c.button.Text = "LOCKED"
+				c.button.BackgroundColor3 = UI.colors.disabled
+			end
+		end
+		weaponsHeader.Text =
+			`Weapons {owned}/{#Config.Weapons} · drops from dungeon waves and bosses`
+	end
+
 	---------------------------------------------------------------- Sprouts
 	local sproutsPage = pages.Sprouts
 	UI.list(sproutsPage, 8)
@@ -527,6 +627,9 @@ function ProfileScreen.new(parent: Instance, ctx: any)
 	end
 
 	screen.visible = panel.visible
+	screen.showTab = function(name: string)
+		showTab(name)
+	end
 	return screen
 end
 

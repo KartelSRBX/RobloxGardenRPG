@@ -93,6 +93,7 @@ function WorldPlots.start(ctx: any)
 	end
 
 	local function update(e: Entry, now: number)
+		e.gui.Enabled = ctx.billboardsOn ~= false
 		local m = e.model
 		local mine = m:GetAttribute("Owner") == player.UserId
 		local profile = State.profile

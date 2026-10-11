@@ -12,6 +12,7 @@ local TweenService = game:GetService("TweenService")
 
 local Garden = require(ReplicatedStorage.Shared.Garden)
 local Luck = require(ReplicatedStorage.Shared.Luck)
+local Sfx = require(script.Parent.Sfx)
 local UI = require(script.Parent.UI)
 
 local player = Players.LocalPlayer
@@ -196,6 +197,9 @@ local function play(result: any)
 		tween(star, 0.25, { BackgroundTransparency = 0 })
 		table.insert(stars, star)
 	end
+	if isCine then
+		Sfx.rollStart()
+	end
 	if isEpic then
 		-- орбита перед схождением
 		local t0 = os.clock()
@@ -233,6 +237,7 @@ local function play(result: any)
 	})
 	tween(flash, 0.6, { BackgroundTransparency = 1 })
 	worldBurst(palette, isCine)
+	Sfx.dropSting(result.treeId, result.lucky, result.isNew)
 	if isCine then
 		shake(if isEpic then 2.2 else 1.2, if isEpic then 0.7 else 0.4)
 		local cam = workspace.CurrentCamera

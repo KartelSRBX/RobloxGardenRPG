@@ -190,6 +190,15 @@ function Icons.coin(parent: Instance, color: Color3, inner: Color3?): Frame
 	return d.root
 end
 
+-- Глаз (скрыть интерфейс)
+function Icons.eye(parent: Instance, color: Color3, accent: Color3?): Frame
+	local d = canvas(parent)
+	d.rect(2, 7.5, 20, 9, color, { radius = 1 })
+	d.circle(12, 12, 4.2, Color3.fromRGB(24, 26, 36))
+	d.circle(12, 12, 2.2, accent or color)
+	return d.root
+end
+
 -- Кристалл (магазин)
 function Icons.gem(parent: Instance, color: Color3, accent: Color3?): Frame
 	local d = canvas(parent)
@@ -218,6 +227,7 @@ local fallback: { [string]: (Instance, Color3, Color3?) -> Frame } = {
 	home = Icons.home,
 	hub = Icons.portal,
 	shop = Icons.gem,
+	eye = Icons.eye,
 	coin = Icons.coin,
 	sprout = Icons.sprout,
 	auto = Icons.repeat_,

@@ -68,6 +68,37 @@ function InventoryService.equipAura(profile: Profile, id: any): string?
 	return nil
 end
 
+function InventoryService.equipWeapon(profile: Profile, id: any): string?
+	if type(id) ~= "string" or not profile.weapons[id] then
+		return "not_owned"
+	end
+	profile.weapon = id
+	return nil
+end
+
+-- Настройки интерфейса и звука. Разрешены только известные ключи и значения нужного типа.
+local SETTINGS: { [string]: { kind: string, min: number?, max: number? } } = {
+	music = { kind = "number", min = 0, max = 1 },
+	sfx = { kind = "number", min = 0, max = 1 },
+	hints = { kind = "boolean" },
+	reveal = { kind = "number", min = 3, max = 7 },
+}
+
+function InventoryService.setSetting(profile: Profile, key: any, value: any): string?
+	local rule = type(key) == "string" and SETTINGS[key]
+	if not rule or type(value) ~= rule.kind then
+		return "bad_args"
+	end
+	if rule.kind == "number" then
+		value = math.clamp(value, rule.min :: number, rule.max :: number)
+		if key == "reveal" then
+			value = math.floor(value)
+		end
+	end
+	profile.settings[key :: string] = value
+	return nil
+end
+
 -- Показать сияние на персонаже: клиенты рисуют его по атрибуту Aura.
 function InventoryService.applyAura(player: Player, profile: Profile)
 	local character = player.Character
