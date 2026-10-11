@@ -553,13 +553,6 @@ function DungeonService.attack(player: Player): string?
 			end
 		end
 	end
-	-- стандартная анимация руки (Animate читает toolanim)
-	if run.tool then
-		local anim = Instance.new("StringValue")
-		anim.Name = "toolanim"
-		anim.Value = run.weapon.toolanim
-		anim.Parent = run.tool
-	end
 	DungeonService.fx(player, { kind = "swing", hits = hits, weapon = run.weapon.id })
 	if #run.enemies == 0 then
 		waveCleared(run)

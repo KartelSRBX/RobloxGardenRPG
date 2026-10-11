@@ -12,6 +12,7 @@ local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local Sfx = require(script.Parent.Sfx)
+local SwingAnim = require(script.Parent.SwingAnim)
 
 local player = Players.LocalPlayer
 
@@ -31,43 +32,46 @@ local function equippedTool(): Tool?
 	return c and c:FindFirstChildOfClass("Tool")
 end
 
--- Дуга удара: ряд светящихся кубиков перед игроком, разлетается и гаснет.
-local function slashArc(w: any)
+-- Дуга удара: ряд светящихся кубиков вдоль траектории клинка (форма из SwingAnim),
+-- кубики появляются по ходу взмаха, потом разлетаются и гаснут.
+local function slashArc(w: any, arc: SwingAnim.Arc)
 	local c = character()
 	local root = c and c:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		return
 	end
-	local count = 9
+	local count = 10
 	local radius = math.clamp(w.range * 0.28, 2.6, 5)
-	local base = root.CFrame * CFrame.new(0, 0.4, 0)
-	local tilt = if w.toolanim == "Lunge" then 0 else math.rad(20)
+	local base = root.CFrame * CFrame.new(0, 0.6, 0)
+	local tilt = math.rad(arc.tilt)
 	for i = 1, count do
 		local t = (i - 1) / (count - 1)
-		local ang = math.rad(-80 + 160 * t)
-		local part = Instance.new("Part")
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-		part.CastShadow = false
-		part.Material = Enum.Material.Neon
-		part.Color = w.edge:Lerp(w.accent, t)
-		local s = 0.35 + math.sin(t * math.pi) * 0.45
-		part.Size = Vector3.new(s, s, s)
-		-- дуга перед игроком; у копий (Lunge) — прямая вперёд
-		local forward = if w.toolanim == "Lunge"
-			then Vector3.new(0, 0, -(1.5 + t * radius * 1.6))
+		local ang = math.rad(arc.from + (arc.to - arc.from) * t)
+		local s = 0.35 + math.sin(t * math.pi) * 0.5
+		local forward = if arc.line
+			then Vector3.new(0, 0, -(1.2 + t * radius * 1.7))
 			else Vector3.new(math.sin(ang) * radius, 0, -math.cos(ang) * radius)
-		part.CFrame = base * CFrame.Angles(0, 0, tilt) * CFrame.new(forward)
-		part.Transparency = 0.05
-		part.Parent = workspace
-		TweenService:Create(part, TweenInfo.new(0.32, Enum.EasingStyle.Quad), {
-			Transparency = 1,
-			Size = Vector3.new(0.05, 0.05, 0.05),
-			CFrame = part.CFrame * CFrame.new(0, 0.3, -1.2),
-		}):Play()
-		Debris:AddItem(part, 0.5)
+		local cf = base * CFrame.Angles(0, 0, tilt) * CFrame.new(forward)
+		task.delay(t * 0.16, function()
+			local part = Instance.new("Part")
+			part.Anchored = true
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.CastShadow = false
+			part.Material = Enum.Material.Neon
+			part.Color = w.edge:Lerp(w.accent, t)
+			part.Size = Vector3.new(s, s, s)
+			part.CFrame = cf
+			part.Transparency = 0.05
+			part.Parent = workspace
+			TweenService:Create(part, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
+				Transparency = 1,
+				Size = Vector3.new(0.05, 0.05, 0.05),
+				CFrame = cf * CFrame.new(0, 0.3, -1.0),
+			}):Play()
+			Debris:AddItem(part, 0.5)
+		end)
 	end
 end
 
@@ -92,8 +96,11 @@ function CombatFx.handle(payload: any)
 		local w = weaponById[payload.weapon]
 		if w then
 			Sfx.swing(w.swing, nil)
+			local arc = SwingAnim.play(w)
 			if w.anim then
-				slashArc(w)
+				if arc then
+					slashArc(w, arc)
+				end
 				local tool = equippedTool()
 				if tool then
 					enableTrail(tool, 0.4)
@@ -128,6 +135,7 @@ end
 
 -- Вращение орбиты у оружия в руке (локально, без сети).
 function CombatFx.start()
+	SwingAnim.start()
 	-- встроенная панель инструментов Roblox не нужна: оружие и слоты рисует наш HUD
 	pcall(function()
 		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)

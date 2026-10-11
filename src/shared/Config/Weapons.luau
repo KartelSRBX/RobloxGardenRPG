@@ -23,7 +23,6 @@ export type Weapon = {
 	accent: Color3,
 	swing: string, -- ключ звука взмаха (Config.Sounds.swing)
 	hit: string, -- ключ звука попадания (Config.Sounds.hit)
-	toolanim: string, -- Slash или Lunge (стандартная анимация руки)
 	particles: string?, -- embers, frost, sparks, void, sun, stars, petals
 }
 
@@ -50,7 +49,6 @@ local W: { Weapon } = {
 		accent = rgb(140, 100, 60),
 		swing = "whoosh",
 		hit = "wood",
-		toolanim = "Slash",
 	},
 	{
 		id = "stone_axe",
@@ -69,7 +67,6 @@ local W: { Weapon } = {
 		accent = rgb(90, 90, 98),
 		swing = "heavy",
 		hit = "stone",
-		toolanim = "Slash",
 	},
 	{
 		id = "iron_dagger",
@@ -88,7 +85,6 @@ local W: { Weapon } = {
 		accent = rgb(120, 120, 130),
 		swing = "quick",
 		hit = "metal",
-		toolanim = "Lunge",
 	},
 	{
 		id = "oak_staff",
@@ -107,7 +103,6 @@ local W: { Weapon } = {
 		accent = rgb(110, 200, 120),
 		swing = "whoosh",
 		hit = "wood",
-		toolanim = "Slash",
 	},
 	-- Tier 2
 	{
@@ -127,7 +122,6 @@ local W: { Weapon } = {
 		accent = rgb(196, 160, 80),
 		swing = "whoosh",
 		hit = "metal",
-		toolanim = "Slash",
 	},
 	{
 		id = "battle_axe",
@@ -146,7 +140,6 @@ local W: { Weapon } = {
 		accent = rgb(150, 70, 60),
 		swing = "heavy",
 		hit = "metal",
-		toolanim = "Slash",
 	},
 	{
 		id = "spear",
@@ -165,7 +158,6 @@ local W: { Weapon } = {
 		accent = rgb(190, 60, 60),
 		swing = "quick",
 		hit = "metal",
-		toolanim = "Lunge",
 	},
 	{
 		id = "war_hammer",
@@ -184,7 +176,6 @@ local W: { Weapon } = {
 		accent = rgb(110, 116, 130),
 		swing = "heavy",
 		hit = "stone",
-		toolanim = "Slash",
 	},
 	-- Tier 3 (с анимацией)
 	{
@@ -204,7 +195,6 @@ local W: { Weapon } = {
 		accent = rgb(200, 60, 70),
 		swing = "slice",
 		hit = "metal",
-		toolanim = "Slash",
 		particles = "sparks",
 	},
 	{
@@ -224,7 +214,6 @@ local W: { Weapon } = {
 		accent = rgb(190, 240, 255),
 		swing = "magic",
 		hit = "magic",
-		toolanim = "Slash",
 		particles = "stars",
 	},
 	{
@@ -244,7 +233,6 @@ local W: { Weapon } = {
 		accent = rgb(120, 80, 200),
 		swing = "quick",
 		hit = "metal",
-		toolanim = "Lunge",
 		particles = "void",
 	},
 	{
@@ -264,7 +252,6 @@ local W: { Weapon } = {
 		accent = rgb(150, 160, 255),
 		swing = "slice",
 		hit = "metal",
-		toolanim = "Slash",
 		particles = "stars",
 	},
 	-- Tier 4 (с анимацией)
@@ -285,7 +272,6 @@ local W: { Weapon } = {
 		accent = rgb(255, 170, 50),
 		swing = "fire",
 		hit = "fire",
-		toolanim = "Slash",
 		particles = "embers",
 	},
 	{
@@ -305,7 +291,6 @@ local W: { Weapon } = {
 		accent = rgb(110, 190, 240),
 		swing = "heavy",
 		hit = "ice",
-		toolanim = "Slash",
 		particles = "frost",
 	},
 	{
@@ -325,7 +310,6 @@ local W: { Weapon } = {
 		accent = rgb(120, 170, 255),
 		swing = "quick",
 		hit = "magic",
-		toolanim = "Lunge",
 		particles = "sparks",
 	},
 	{
@@ -345,7 +329,6 @@ local W: { Weapon } = {
 		accent = rgb(160, 80, 255),
 		swing = "quick",
 		hit = "magic",
-		toolanim = "Lunge",
 		particles = "void",
 	},
 	-- Tier 5 (с анимацией)
@@ -366,7 +349,6 @@ local W: { Weapon } = {
 		accent = rgb(255, 160, 60),
 		swing = "fire",
 		hit = "fire",
-		toolanim = "Slash",
 		particles = "sun",
 	},
 	{
@@ -386,7 +368,6 @@ local W: { Weapon } = {
 		accent = rgb(255, 196, 80),
 		swing = "heavy",
 		hit = "fire",
-		toolanim = "Slash",
 		particles = "embers",
 	},
 	{
@@ -406,7 +387,6 @@ local W: { Weapon } = {
 		accent = rgb(255, 130, 220),
 		swing = "magic",
 		hit = "magic",
-		toolanim = "Slash",
 		particles = "stars",
 	},
 	{
@@ -426,7 +406,6 @@ local W: { Weapon } = {
 		accent = rgb(150, 230, 255),
 		swing = "slice",
 		hit = "magic",
-		toolanim = "Slash",
 		particles = "stars",
 	},
 }
